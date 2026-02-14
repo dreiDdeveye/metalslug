@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METAL SLUG</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET ────────────────────────────────────────────────── */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --or:#f5a623;--re:#e63c2f;--ye:#ffe94d;--bg:#060606;
+  --panel:#0d0d0d;--border:#1e1e1e;--muted:#444;--text:#ccc;
+}
+html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;
+  font-family:'Share Tech Mono',monospace;color:var(--text);cursor:crosshair}
+
+/* ─── CRT ──────────────────────────────────────────────────── */
+#crt{position:fixed;inset:0;z-index:900;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.15) 2px,rgba(0,0,0,0.15) 4px);
+  animation:flicker 9s infinite}
+#crt::after{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,0.75) 100%)}
+@keyframes flicker{0%,100%{opacity:1}91%{opacity:1}92%{opacity:.82}93%{opacity:1}95%{opacity:.9}96%{opacity:1}}
+#grain{position:fixed;inset:0;z-index:899;pointer-events:none;opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:200px}
+
+/* ─── BG CANVAS ────────────────────────────────────────────── */
+#bgc{position:fixed;inset:0;z-index:0}
+
+/* ─── FLASH ────────────────────────────────────────────────── */
+#flash{position:fixed;inset:0;z-index:9999;background:#fff;opacity:0;pointer-events:none;transition:opacity .08s}
+#flash.on{opacity:1}
+
+/* ─── GAME FRAME ───────────────────────────────────────────── */
+#gf{position:fixed;inset:0;z-index:9998;display:none;border:none;width:100%;height:100%;background:#000}
+
+/* ─── FUNNEL SHELL ─────────────────────────────────────────── */
+#funnel{position:relative;z-index:10;width:100%;height:100%;overflow:hidden}
+
+/* ─── STEP (each "page") ───────────────────────────────────── */
+.step{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px 20px;
+  opacity:0;pointer-events:none;
+  transition:opacity .5s ease, transform .5s ease;
+  transform:translateX(60px);
+}
+.step.active{opacity:1;pointer-events:all;transform:translateX(0)}
+.step.exit-left{opacity:0;transform:translateX(-60px)}
+
+/* ─── PROGRESS BAR ─────────────────────────────────────────── */
+#progress{
+  position:fixed;top:0;left:0;right:0;z-index:20;
+  height:3px;background:var(--border);
+}
+#progress-fill{height:100%;background:linear-gradient(90deg,var(--or),var(--ye));
+  width:33%;transition:width .5s cubic-bezier(.4,0,.2,1)}
+
+/* ─── STEP COUNTER ─────────────────────────────────────────── */
+#step-counter{
+  position:fixed;top:14px;right:20px;z-index:20;
+  font-size:9px;letter-spacing:3px;color:var(--muted);
+}
+
+/* ─── CABINET CARD ─────────────────────────────────────────── */
+.card{
+  width:min(680px,96vw);
+  background:var(--panel);
+  border:1.5px solid var(--border);
+  border-radius:3px;
+  overflow:hidden;
+  box-shadow:0 0 60px rgba(245,166,35,.06),inset 0 0 40px rgba(0,0,0,.6);
+}
+
+/* ─── MARQUEE BAR ──────────────────────────────────────────── */
+.mbar{
+  background:#080808;border-bottom:2px solid #181818;
+  padding:9px 18px;display:flex;align-items:center;justify-content:space-between;
+}
+.mdots{display:flex;gap:5px}
+.md{width:7px;height:7px;border-radius:50%;animation:bd 1.2s infinite}
+.md:nth-child(1){background:var(--re);animation-delay:0s}
+.md:nth-child(2){background:var(--or);animation-delay:.22s}
+.md:nth-child(3){background:var(--ye);animation-delay:.44s}
+@keyframes bd{0%,100%{opacity:1}50%{opacity:.15}}
+.mtxt{font-family:'Black Ops One',cursive;font-size:clamp(10px,2vw,13px);color:#333;letter-spacing:4px}
+
+/* ─── CARD BODY ────────────────────────────────────────────── */
+.cbody{
+  padding:32px 36px 28px;
+  display:flex;flex-direction:column;align-items:center;
+  position:relative;overflow:hidden;
+}
+.cbody::before{
+  content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:linear-gradient(to bottom,transparent,rgba(245,166,35,.025) 50%,transparent);
+  animation:scan 4s linear infinite;height:200%;
+}
+@keyframes scan{0%{transform:translateY(-50%)}100%{transform:translateY(0%)}}
+
+/* ─── STEP 1: HERO ─────────────────────────────────────────── */
+#logo-eyebrow{
+  position:relative;z-index:1;
+  font-size:clamp(8px,1.3vw,10px);letter-spacing:9px;color:#333;
+  text-transform:uppercase;margin-bottom:6px;
+  animation:fi .8s both;
+}
+#logo-main{
+  position:relative;z-index:1;
+  font-family:'Black Ops One',cursive;
+  font-size:clamp(52px,12vw,96px);
+  line-height:.88;text-align:center;letter-spacing:-2px;
+  background:linear-gradient(180deg,#ffe94d 0%,#f5a623 48%,#b85a10 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:logo-glow 3s ease-in-out infinite alternate, fi .8s both;
+}
+@keyframes logo-glow{
+  from{filter:drop-shadow(0 0 10px rgba(245,166,35,.35))}
+  to{filter:drop-shadow(0 0 28px rgba(245,166,35,.85)) drop-shadow(0 0 70px rgba(245,166,35,.25))}
+}
+#logo-sub{
+  position:relative;z-index:1;
+  font-family:'Black Ops One',cursive;
+  font-size:clamp(12px,2.5vw,18px);
+  color:var(--re);letter-spacing:8px;margin-top:4px;text-align:center;
+  animation:fi .8s .15s both;
+}
+#hero-desc{
+  position:relative;z-index:1;
+  margin-top:18px;font-size:clamp(9px,1.6vw,11px);color:#3a3a3a;
+  letter-spacing:2px;text-align:center;line-height:1.8;
+  animation:fi .8s .3s both;
+}
+
+/* ─── STEP 2: FEATURES ─────────────────────────────────────── */
+.s-title{
+  position:relative;z-index:1;
+  font-family:'Black Ops One',cursive;
+  font-size:clamp(20px,4vw,30px);
+  color:var(--or);letter-spacing:4px;margin-bottom:6px;text-align:center;
+}
+.s-sub{
+  font-size:9px;letter-spacing:3px;color:#333;margin-bottom:26px;text-align:center;
+}
+#feat-grid{
+  position:relative;z-index:1;
+  display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:100%;max-width:480px;
+  margin-bottom:8px;
+}
+.feat{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 16px;border:1px solid var(--border);
+  background:rgba(255,255,255,.02);border-radius:2px;
+  transition:border-color .3s,background .3s;
+}
+.feat:hover{border-color:var(--or);background:rgba(245,166,35,.05)}
+.feat-icon{
+  width:28px;height:28px;flex-shrink:0;
+  color:var(--or);opacity:.85;
+}
+.feat-text{display:flex;flex-direction:column;gap:3px}
+.feat-name{font-size:10px;letter-spacing:2px;color:#bbb;text-transform:uppercase}
+.feat-detail{font-size:8px;letter-spacing:1px;color:#333;line-height:1.4}
+
+/* ─── STEP 3: CONTROLS ─────────────────────────────────────── */
+#ctrl-grid{
+  position:relative;z-index:1;
+  display:grid;grid-template-columns:repeat(2,1fr);gap:10px;
+  width:100%;max-width:480px;margin-bottom:8px;
+}
+.ctrl{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;border:1px solid var(--border);
+  background:rgba(255,255,255,.02);border-radius:2px;
+  transition:border-color .3s;
+}
+.ctrl:hover{border-color:#333}
+.ctrl-key-badge{
+  background:#111;border:1px solid #2a2a2a;border-radius:3px;
+  padding:4px 8px;font-size:10px;color:var(--or);letter-spacing:1px;
+  white-space:nowrap;flex-shrink:0;min-width:52px;text-align:center;
+}
+.ctrl-desc{font-size:9px;color:#3a3a3a;letter-spacing:1px;text-transform:uppercase}
+
+/* ─── NAV BUTTONS ──────────────────────────────────────────── */
+.nav-row{
+  position:relative;z-index:1;
+  display:flex;gap:12px;margin-top:22px;align-items:center;
+}
+.btn-back{
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px;letter-spacing:3px;color:#333;
+  background:none;border:1px solid #1e1e1e;
+  padding:11px 22px;cursor:pointer;border-radius:2px;
+  transition:color .2s,border-color .2s;text-transform:uppercase;
+}
+.btn-back:hover{color:#666;border-color:#333}
+.btn-next{
+  font-family:'Black Ops One',cursive;
+  font-size:clamp(13px,2.5vw,16px);letter-spacing:4px;
+  color:#000;background:linear-gradient(180deg,#ffe94d 0%,#f5a623 100%);
+  border:none;outline:none;padding:13px 36px;cursor:pointer;
+  clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);
+  transition:transform .1s,filter .2s;text-transform:uppercase;
+  animation:pulse 2s ease-in-out infinite;
+}
+.btn-next:hover{transform:scale(1.04);filter:brightness(1.15)}
+.btn-next:active{transform:scale(.97)}
+@keyframes pulse{
+  0%,100%{box-shadow:0 0 18px rgba(245,166,35,.35)}
+  50%{box-shadow:0 0 32px rgba(245,166,35,.75),0 0 70px rgba(245,166,35,.2)}
+}
+
+/* ─── LAUNCH BUTTON (step 3) ────────────────────────────────── */
+#launch-btn{
+  font-family:'Black Ops One',cursive;
+  font-size:clamp(15px,3vw,20px);letter-spacing:5px;
+  color:#000;background:linear-gradient(180deg,#ffe94d 0%,#f5a623 100%);
+  border:none;outline:none;padding:16px 48px;cursor:pointer;
+  clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);
+  transition:transform .1s,filter .2s;text-transform:uppercase;
+  animation:pulse 1.6s ease-in-out infinite;
+  position:relative;z-index:1;
+}
+#launch-btn:hover{transform:scale(1.05);filter:brightness(1.2)}
+#launch-btn:active{transform:scale(.96)}
+#launch-hint{
+  position:relative;z-index:1;
+  margin-top:10px;font-size:9px;letter-spacing:3px;color:#2a2a2a;
+  animation:blink 1.5s step-end infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ─── BOTTOM BAR ───────────────────────────────────────────── */
+.bbar{
+  background:#080808;border-top:2px solid #151515;
+  padding:9px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+#credit-c{font-size:9px;letter-spacing:2px;color:#2a2a2a;animation:blink 2.2s step-end infinite}
+#x-link{
+  display:flex;align-items:center;gap:7px;text-decoration:none;
+  padding:5px 13px;border:1px solid #1a1a1a;border-radius:2px;
+  color:#3a3a3a;font-size:9px;letter-spacing:2px;
+  transition:border-color .25s,color .25s,background .25s;
+}
+#x-link:hover{border-color:#fff;color:#fff;background:rgba(255,255,255,.04)}
+#x-link svg{width:12px;height:12px;fill:currentColor;flex-shrink:0}
+#ver{font-size:8px;letter-spacing:2px;color:#1c1c1c}
+
+/* ─── CASINGS ───────────────────────────────────────────────── */
+.cas{
+  position:fixed;z-index:897;pointer-events:none;
+  width:5px;height:13px;
+  background:linear-gradient(180deg,#ffe94d,#b85a10);
+  border-radius:2px 2px 1px 1px;
+  animation:cas-fall linear forwards;
+}
+@keyframes cas-fall{
+  0%{opacity:1;transform:rotate(var(--r0)) translateY(0)}
+  100%{opacity:0;transform:rotate(var(--r1)) translateY(var(--fd))}
+}
+
+/* ─── SIDE LAMPS ────────────────────────────────────────────── */
+.lamp{position:absolute;top:50%;transform:translateY(-50%);z-index:5;display:flex;flex-direction:column;gap:6px;align-items:center}
+.lamp-l{left:-14px}.lamp-r{right:-14px}
+.lb{width:7px;height:7px;border-radius:50%;animation:lc 2.4s infinite}
+.lb:nth-child(1){animation-delay:0s}.lb:nth-child(2){animation-delay:.3s}
+.lb:nth-child(3){animation-delay:.6s}.lb:nth-child(4){animation-delay:.9s}
+.lb:nth-child(5){animation-delay:1.2s}
+@keyframes lc{0%,100%{background:#111;box-shadow:none}40%,60%{background:var(--or);box-shadow:0 0 7px var(--or)}}
+
+/* ─── CURSOR TRAIL ──────────────────────────────────────────── */
+.trail{position:fixed;z-index:896;pointer-events:none;width:4px;height:4px;border-radius:50%;
+  background:rgba(245,166,35,.7);transition:opacity .4s,transform .4s}
+
+/* ─── UTIL ──────────────────────────────────────────────────── */
+@keyframes fi{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.divline{
+  position:relative;z-index:1;
+  width:100%;display:flex;align-items:center;gap:10px;margin:16px 0 12px;
+}
+.divline::before,.divline::after{content:'';flex:1;height:1px;
+  background:linear-gradient(to right,transparent,#222,transparent)}
+.divline span{color:#2a2a2a;font-size:9px;letter-spacing:4px;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div id="crt"></div>
+<div id="grain"></div>
+<div id="flash"></div>
+<div id="progress"><div id="progress-fill"></div></div>
+<span id="step-counter">01 / 03</span>
+<canvas id="bgc"></canvas>
+<iframe id="gf" src="" title="Metal Slug"></iframe>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- FUNNEL                                                     -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="funnel">
+
+  <!-- ── STEP 1: HERO ──────────────────────────────────────── -->
+  <div class="step active" id="s1">
+    <div class="card">
+      <div class="lamp lamp-l"><div class="lb"></div><div class="lb"></div><div class="lb"></div><div class="lb"></div><div class="lb"></div></div>
+      <div class="lamp lamp-r"><div class="lb"></div><div class="lb"></div><div class="lb"></div><div class="lb"></div><div class="lb"></div></div>
+      <div class="mbar">
+        <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
+        <span class="mtxt">SNK CORPORATION · RUN AND GUN</span>
+        <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
+      </div>
+      <div class="cbody">
+        <div id="logo-eyebrow">Operation: STEEL WIND</div>
+        <div id="logo-main">METAL<br>SLUG</div>
+        <div id="logo-sub">RUN &amp; GUN</div>
+        <div id="hero-desc">
+          SIDE-SCROLLING ARCADE ACTION · PIXEL SOLDIERS · TANK WARFARE<br>
+          SURVIVE THE ASSAULT — REACH THE OBJECTIVE
+        </div>
+        <div class="nav-row" style="margin-top:28px">
+          <button class="btn-next" onclick="goStep(2)">BRIEFING &nbsp;›</button>
+        </div>
+      </div>
+      <div class="bbar">
+        <span id="credit-c">CREDIT(S): 03</span>
+        <a id="x-link" href="https://x.com/yourusername" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          @yourusername
+        </a>
+        <span id="ver">VER 1.0.0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 2: FEATURES ──────────────────────────────────── -->
+  <div class="step" id="s2">
+    <div class="card">
+      <div class="mbar">
+        <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
+        <span class="mtxt">MISSION BRIEFING</span>
+        <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
+      </div>
+      <div class="cbody">
+        <div class="s-title">ARSENAL</div>
+        <div class="s-sub">WHAT AWAITS YOU ON THE BATTLEFIELD</div>
+
+        <div id="feat-grid">
+
+          <!-- Pixel Soldiers -->
+          <div class="feat">
+            <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="5" r="2.5"/>
+              <path d="M9 9h6l1 5H8L9 9z"/>
+              <path d="M8 14l-2 6h12l-2-6"/>
+              <path d="M9 9L7 7m8 2l2-2"/>
+            </svg>
+            <div class="feat-text">
+              <div class="feat-name">Pixel Soldiers</div>
+              <div class="feat-detail">Hand-crafted sprites &amp; smooth animation</div>
+            </div>
+          </div>
+
+          <!-- Grenades -->
+          <div class="feat">
+            <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="15" rx="5" ry="5.5"/>
+              <path d="M12 9.5V7"/>
+              <path d="M10 7h4"/>
+              <path d="M14 5l1-1.5"/>
+              <path d="M7 18l-2 2m12-2l2 2"/>
+            </svg>
+            <div class="feat-text">
+              <div class="feat-name">Grenades</div>
+              <div class="feat-detail">Arc physics &amp; blast radius damage</div>
+            </div>
+          </div>
+
+          <!-- Metal Slug Tank -->
+          <div class="feat">
+            <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="10" width="18" height="8" rx="2"/>
+              <path d="M4 18v2m4-2v2m4-2v2m4-2v2"/>
+              <rect x="6" y="7" width="10" height="4" rx="1"/>
+              <path d="M16 9h5"/>
+              <circle cx="5" cy="15" r="1.5"/><circle cx="10" cy="15" r="1.5"/><circle cx="15" cy="15" r="1.5"/>
+            </svg>
+            <div class="feat-text">
+              <div class="feat-name">Metal Slug Tank</div>
+              <div class="feat-detail">Board, drive &amp; unleash heavy fire</div>
+            </div>
+          </div>
+
+          <!-- Full Level -->
+          <div class="feat">
+            <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <path d="M8 21h8m-4-4v4"/>
+              <path d="M6 10l3 3 3-3 3 3 3-3"/>
+            </svg>
+            <div class="feat-text">
+              <div class="feat-name">Full Level</div>
+              <div class="feat-detail">5000px scrolling map with obstacles</div>
+            </div>
+          </div>
+
+          <!-- Side-Scrolling Action -->
+          <div class="feat">
+            <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14"/>
+              <path d="M15 8l4 4-4 4"/>
+              <circle cx="5" cy="12" r="2"/>
+            </svg>
+            <div class="feat-text">
+              <div class="feat-name">Arcade Action</div>
+              <div class="feat-detail">Classic run &amp; gun side-scroll</div>
+            </div>
+          </div>
+
+          <!-- Pickups -->
+          <div class="feat">
+            <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 4v16m-4-8h8"/>
+              <circle cx="12" cy="12" r="9"/>
+            </svg>
+            <div class="feat-text">
+              <div class="feat-name">Health Pickups</div>
+              <div class="feat-detail">Restore HP scattered across the map</div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="nav-row">
+          <button class="btn-back" onclick="goStep(1)">‹ BACK</button>
+          <button class="btn-next" onclick="goStep(3)">CONTROLS &nbsp;›</button>
+        </div>
+      </div>
+      <div class="bbar">
+        <span style="font-size:9px;letter-spacing:2px;color:#1c1c1c">STEP 2 OF 3</span>
+        <a id="x-link2" href="https://x.com/yourusername" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:7px;text-decoration:none;padding:5px 13px;border:1px solid #1a1a1a;border-radius:2px;color:#3a3a3a;font-size:9px;letter-spacing:2px;transition:border-color .25s,color .25s">
+          <svg style="width:12px;height:12px;fill:currentColor;flex-shrink:0" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          @yourusername
+        </a>
+        <span style="font-size:8px;letter-spacing:2px;color:#1c1c1c">VER 1.0.0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 3: CONTROLS + LAUNCH ─────────────────────────── -->
+  <div class="step" id="s3">
+    <div class="card">
+      <div class="mbar">
+        <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
+        <span class="mtxt">CONTROL SCHEME</span>
+        <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
+      </div>
+      <div class="cbody">
+        <div class="s-title">CONTROLS</div>
+        <div class="s-sub">MASTER THESE — THEN DEPLOY</div>
+
+        <div id="ctrl-grid">
+
+          <div class="ctrl">
+            <span class="ctrl-key-badge">← →</span>
+            <span class="ctrl-desc">Move left / right</span>
+          </div>
+          <div class="ctrl">
+            <span class="ctrl-key-badge">↑ / W</span>
+            <span class="ctrl-desc">Jump</span>
+          </div>
+          <div class="ctrl">
+            <span class="ctrl-key-badge">Z / SPC</span>
+            <span class="ctrl-desc">Shoot</span>
+          </div>
+          <div class="ctrl">
+            <span class="ctrl-key-badge">X</span>
+            <span class="ctrl-desc">Throw grenade</span>
+          </div>
+          <div class="ctrl">
+            <span class="ctrl-key-badge">↓</span>
+            <span class="ctrl-desc">Duck / crouch</span>
+          </div>
+          <div class="ctrl">
+            <span class="ctrl-key-badge">↑ TANK</span>
+            <span class="ctrl-desc">Board tank</span>
+          </div>
+
+        </div>
+
+        <div class="divline"><span>▸ DEPLOY WHEN READY ◂</span></div>
+
+        <button id="launch-btn" onclick="launchGame()">
+          ▶ ENTER THE GAME
+        </button>
+        <div id="launch-hint">PRESS ENTER OR CLICK TO DEPLOY</div>
+
+        <div class="nav-row" style="margin-top:14px">
+          <button class="btn-back" onclick="goStep(2)">‹ BACK</button>
+        </div>
+      </div>
+      <div class="bbar">
+        <span style="font-size:9px;letter-spacing:2px;color:#1c1c1c">STEP 3 OF 3</span>
+        <a href="https://x.com/yourusername" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:7px;text-decoration:none;padding:5px 13px;border:1px solid #1a1a1a;border-radius:2px;color:#3a3a3a;font-size:9px;letter-spacing:2px;">
+          <svg style="width:12px;height:12px;fill:currentColor;flex-shrink:0" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          @yourusername
+        </a>
+        <span style="font-size:8px;letter-spacing:2px;color:#1c1c1c">VER 1.0.0</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /funnel -->
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// PARALLAX BG
+// ═══════════════════════════════════════════════════════════
+const bgc=document.getElementById('bgc'),bx=bgc.getContext('2d');
+let sc=0;
+function rz(){bgc.width=innerWidth;bgc.height=innerHeight}rz();
+window.addEventListener('resize',rz);
+function drawBg(){
+  const W=bgc.width,H=bgc.height;
+  bx.clearRect(0,0,W,H);
+  const sky=bx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#010510');sky.addColorStop(.6,'#060e1e');sky.addColorStop(1,'#0a0a0a');
+  bx.fillStyle=sky;bx.fillRect(0,0,W,H);
+  // stars
+  bx.fillStyle='rgba(255,255,255,.55)';
+  for(let i=0;i<80;i++){
+    const sx=((i*173%W)-sc*.02+W*2)%W,sy=(i*97)%(H*.58),ss=.4+(i*7%3)*.5;
+    bx.fillRect(sx,sy,ss,ss);
+  }
+  // mountains
+  bx.fillStyle='rgba(20,30,50,.85)';
+  for(let i=0;i<12;i++){
+    const mx=((i*220+50)-sc*.08+W*3)%(W+200)-100,mh=60+(i*37%80);
+    bx.beginPath();bx.moveTo(mx,H);bx.lineTo(mx+100,H-mh);bx.lineTo(mx+200,H);bx.fill();
+  }
+  // buildings
+  bx.fillStyle='rgba(14,20,30,.95)';
+  for(let i=0;i<16;i++){
+    const bx2=((i*190+20)-sc*.15+W*3)%(W+160)-80,bh=40+(i*53%70),bw=35+(i*29%40);
+    bx.fillRect(bx2,H-bh,bw,bh);
+    bx.fillStyle='rgba(245,166,35,.35)';
+    for(let wy=H-bh+6;wy<H-8;wy+=10)for(let wx=bx2+4;wx<bx2+bw-8;wx+=10)if((i+Math.floor(wy/10))%3!==0)bx.fillRect(wx,wy,5,5);
+    bx.fillStyle='rgba(14,20,30,.95)';
+  }
+  // trees
+  bx.fillStyle='rgba(18,40,18,.9)';
+  for(let i=0;i<20;i++){
+    const tx=((i*130+30)-sc*.3+W*3)%(W+80)-40,th=25+(i*19%20);
+    bx.fillRect(tx+7,H-th,5,th);bx.beginPath();bx.arc(tx+10,H-th,13,0,Math.PI*2);bx.fill();
+  }
+  const g=bx.createLinearGradient(0,H-18,0,H);
+  g.addColorStop(0,'#1a130a');g.addColorStop(1,'#0a0a0a');
+  bx.fillStyle=g;bx.fillRect(0,H-18,W,18);
+  sc+=.38;
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+// ═══════════════════════════════════════════════════════════
+// FUNNEL NAVIGATION
+// ═══════════════════════════════════════════════════════════
+let curStep=1;
+const progressFill=document.getElementById('progress-fill');
+const stepCounter=document.getElementById('step-counter');
+
+function goStep(n){
+  const prev=document.getElementById('s'+curStep);
+  const next=document.getElementById('s'+n);
+  prev.classList.remove('active');
+  prev.classList.add('exit-left');
+  setTimeout(()=>prev.classList.remove('exit-left'),500);
+  next.classList.add('active');
+  curStep=n;
+  // progress bar: 33% | 66% | 100%
+  progressFill.style.width=(n/3*100)+'%';
+  stepCounter.textContent=(n<10?'0'+n:n)+' / 03';
+}
+
+// ═══════════════════════════════════════════════════════════
+// LAUNCH GAME
+// ═══════════════════════════════════════════════════════════
+const flash=document.getElementById('flash');
+const gf=document.getElementById('gf');
+let launched=false;
+
+function launchGame(){
+  if(launched)return;
+  launched=true;
+  flash.classList.add('on');
+  setTimeout(()=>{
+    flash.classList.remove('on');
+    gf.src='metal-slug-clone.html';
+    document.getElementById('funnel').style.display='none';
+    document.getElementById('crt').style.display='none';
+    document.getElementById('grain').style.display='none';
+    document.getElementById('progress').style.display='none';
+    document.getElementById('step-counter').style.display='none';
+    gf.style.display='block';
+    gf.addEventListener('load',()=>{try{gf.contentWindow.focus()}catch(e){}},{once:true});
+    gf.focus();
+  },120);
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.code==='Enter'&&!launched){
+    if(curStep<3) goStep(curStep+1);
+    else launchGame();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// CREDITS COUNTER
+// ═══════════════════════════════════════════════════════════
+let creds=3;
+const ce=document.getElementById('credit-c');
+setInterval(()=>{creds=creds<=1?3:creds-1;ce.textContent=`CREDIT(S): 0${creds}`;},3200);
+
+// ═══════════════════════════════════════════════════════════
+// BULLET CASINGS
+// ═══════════════════════════════════════════════════════════
+function spawnCas(){
+  const el=document.createElement('div');el.className='cas';
+  const x=10+Math.random()*(innerWidth-20),r=-35+Math.random()*70,fd=80+Math.random()*130;
+  el.style.cssText=`left:${x}px;top:-18px;--r0:${r}deg;--r1:${r+190}deg;--fd:${fd}px;animation-duration:${1.2+Math.random()*1.8}s;animation-delay:${Math.random()*.5}s`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),3200);
+}
+setInterval(spawnCas,650);
+
+// ═══════════════════════════════════════════════════════════
+// CURSOR TRAIL
+// ═══════════════════════════════════════════════════════════
+document.addEventListener('mousemove',e=>{
+  if(Math.random()>.14)return;
+  const d=document.createElement('div');d.className='trail';
+  d.style.cssText=`left:${e.clientX}px;top:${e.clientY}px`;
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>{d.style.opacity='0';d.style.transform='scale(2)';});
+  setTimeout(()=>d.remove(),420);
+});
+</script>
+</body>
+</html>

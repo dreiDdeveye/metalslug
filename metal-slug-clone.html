@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>METAL SLUG — CLONE</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:'Courier New',monospace;overflow:hidden}
+#wrap{border:3px solid #f5a623;box-shadow:0 0 40px #f5a62344;position:relative}
+#hud{background:#111;padding:6px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #f5a623;color:#f5a623;font-size:13px;letter-spacing:2px}
+#hud .mid{color:#fff;font-weight:bold;font-size:15px;letter-spacing:4px}
+#ctrl{background:#111;padding:5px 12px;border-top:2px solid #333;color:#888;font-size:10px;letter-spacing:1px;text-align:center}
+#ctrl span{color:#f5a623}
+canvas{display:block;image-rendering:pixelated}
+#over{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.88);flex-direction:column;align-items:center;justify-content:center;color:#f5a623;font-size:30px;letter-spacing:5px;z-index:9;text-align:center}
+#over .sub{font-size:12px;color:#888;margin-top:12px;letter-spacing:2px}
+#over.on{display:flex}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <span id="hs">SCORE: 0</span>
+    <span class="mid">METAL SLUG</span>
+    <span id="hl" style="text-align:right">LIVES: ❤️❤️❤️</span>
+  </div>
+  <canvas id="c" width="800" height="320"></canvas>
+  <div id="ctrl">
+    <span>← →</span> MOVE &nbsp; <span>↑/W</span> JUMP &nbsp;
+    <span>Z/SPC</span> SHOOT &nbsp; <span>X</span> GRENADE &nbsp;
+    <span>↑ near tank</span> BOARD
+  </div>
+  <div id="over">
+    <span id="ot">MISSION FAILED</span>
+    <div class="sub" id="os">PRESS ENTER TO RETRY</div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// PIXEL ART RENDERER — draw sprites with 3-pixel scale
+// ═══════════════════════════════════════════════════════════════
+const PX = 3; // pixel size
+
+function px(ctx, x, y, color, pw=1, ph=1) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x*PX, y*PX, pw*PX, ph*PX);
+}
+
+// Pre-render sprites to offscreen canvases
+function makeSprite(w, h, fn) {
+  const c = document.createElement('canvas');
+  c.width = w*PX; c.height = h*PX;
+  const ctx = c.getContext('2d');
+  fn(ctx);
+  return c;
+}
+
+// ── Player frames ──────────────────────────────────────────────
+function drawMarcoBase(ctx, legR, legL, armUp) {
+  // boots
+  px(ctx,1,22,'#3a2a0a',5,3); px(ctx,10,22,'#3a2a0a',5,3);
+  // pants
+  px(ctx,2,14,'#4a7a2a',12,9);
+  // belt
+  px(ctx,2,14,'#8B6914',12,2);
+  // body
+  px(ctx,2,7,'#5a9a3a',12,8);
+  // arms
+  px(ctx,0,8,'#5a9a3a',3,5); px(ctx,14,8,'#5a9a3a',3,5);
+  // gun
+  px(ctx,14,9,'#222',5,2);
+  // head
+  px(ctx,4,2,'#f5c58a',8,6);
+  // helmet
+  px(ctx,3,0,'#8B6914',10,3);
+  // eyes
+  px(ctx,5,4,'#000',2,1); px(ctx,9,4,'#000',2,1);
+}
+
+const SPRITES = {};
+function buildSprites() {
+  // player stand
+  SPRITES.pStand = makeSprite(18,26, ctx=>{
+    px(ctx,1,22,'#3a2a0a',5,4); px(ctx,10,22,'#3a2a0a',5,4);
+    px(ctx,2,14,'#4a7a2a',12,9); px(ctx,2,14,'#8B6914',12,2);
+    px(ctx,2,7,'#5a9a3a',12,8);
+    px(ctx,0,8,'#5a9a3a',3,5); px(ctx,14,8,'#5a9a3a',3,5);
+    px(ctx,14,9,'#222',5,2);
+    px(ctx,4,2,'#f5c58a',8,6); px(ctx,3,0,'#8B6914',10,3);
+    px(ctx,5,4,'#000',2,1); px(ctx,9,4,'#000',2,1);
+  });
+  // player run1
+  SPRITES.pRun1 = makeSprite(18,26, ctx=>{
+    px(ctx,2,20,'#3a2a0a',5,5); px(ctx,10,22,'#3a2a0a',5,4);
+    px(ctx,2,13,'#4a7a2a',12,10); px(ctx,2,13,'#8B6914',12,2);
+    px(ctx,2,7,'#5a9a3a',12,7);
+    px(ctx,0,6,'#5a9a3a',3,5); px(ctx,14,8,'#5a9a3a',3,5);
+    px(ctx,14,8,'#222',5,2);
+    px(ctx,4,2,'#f5c58a',8,6); px(ctx,3,0,'#8B6914',10,3);
+    px(ctx,5,4,'#000',2,1); px(ctx,9,4,'#000',2,1);
+  });
+  // player run2
+  SPRITES.pRun2 = makeSprite(18,26, ctx=>{
+    px(ctx,1,22,'#3a2a0a',5,4); px(ctx,10,20,'#3a2a0a',5,5);
+    px(ctx,2,13,'#4a7a2a',12,10); px(ctx,2,13,'#8B6914',12,2);
+    px(ctx,2,7,'#5a9a3a',12,7);
+    px(ctx,14,6,'#5a9a3a',3,5); px(ctx,0,8,'#5a9a3a',3,5);
+    px(ctx,14,8,'#222',5,2);
+    px(ctx,4,2,'#f5c58a',8,6); px(ctx,3,0,'#8B6914',10,3);
+    px(ctx,5,4,'#000',2,1); px(ctx,9,4,'#000',2,1);
+  });
+  // player jump
+  SPRITES.pJump = makeSprite(18,24, ctx=>{
+    px(ctx,2,18,'#3a2a0a',5,4); px(ctx,9,18,'#3a2a0a',5,4);
+    px(ctx,2,11,'#4a7a2a',12,8); px(ctx,2,11,'#8B6914',12,2);
+    px(ctx,2,6,'#5a9a3a',12,6);
+    px(ctx,0,5,'#5a9a3a',3,5); px(ctx,14,7,'#5a9a3a',3,5);
+    px(ctx,14,7,'#222',5,2);
+    px(ctx,4,1,'#f5c58a',8,6); px(ctx,3,0,'#8B6914',10,3);
+    px(ctx,5,3,'#000',2,1); px(ctx,9,3,'#000',2,1);
+  });
+  // player duck
+  SPRITES.pDuck = makeSprite(20,20, ctx=>{
+    px(ctx,1,14,'#3a2a0a',6,5); px(ctx,11,14,'#3a2a0a',6,5);
+    px(ctx,1,8,'#4a7a2a',14,8); px(ctx,1,8,'#8B6914',14,2);
+    px(ctx,2,3,'#5a9a3a',12,6);
+    px(ctx,13,5,'#222',6,2);
+    px(ctx,4,0,'#f5c58a',8,5); px(ctx,3,0,'#8B6914',10,2);
+    px(ctx,5,2,'#000',2,1); px(ctx,9,2,'#000',2,1);
+  });
+
+  // enemy stand
+  SPRITES.eStand = makeSprite(18,26, ctx=>{
+    px(ctx,1,22,'#3a2a0a',5,4); px(ctx,10,22,'#3a2a0a',5,4);
+    px(ctx,2,14,'#7a4a2a',11,9);
+    px(ctx,2,7,'#9a5a2a',11,8);
+    px(ctx,0,8,'#9a5a2a',3,5); px(ctx,12,9,'#9a5a2a',3,4);
+    px(ctx,0,10,'#222',6,2);  // gun pointing left
+    px(ctx,3,2,'#d4a06a',8,6); px(ctx,2,0,'#5a3a1a',10,3);
+    px(ctx,4,4,'#000',2,1); px(ctx,8,4,'#000',2,1);
+    px(ctx,3,3,'#3a2a0a',4,1); px(ctx,8,3,'#3a2a0a',3,1);
+  });
+  SPRITES.eWalk1 = makeSprite(18,26, ctx=>{
+    px(ctx,2,20,'#3a2a0a',5,5); px(ctx,10,22,'#3a2a0a',5,4);
+    px(ctx,2,13,'#7a4a2a',11,10);
+    px(ctx,2,7,'#9a5a2a',11,7);
+    px(ctx,0,7,'#9a5a2a',3,5); px(ctx,12,9,'#9a5a2a',3,4);
+    px(ctx,0,10,'#222',6,2);
+    px(ctx,3,2,'#d4a06a',8,6); px(ctx,2,0,'#5a3a1a',10,3);
+    px(ctx,4,4,'#000',2,1); px(ctx,8,4,'#000',2,1);
+  });
+  SPRITES.eWalk2 = makeSprite(18,26, ctx=>{
+    px(ctx,1,22,'#3a2a0a',5,4); px(ctx,10,20,'#3a2a0a',5,5);
+    px(ctx,2,13,'#7a4a2a',11,10);
+    px(ctx,2,7,'#9a5a2a',11,7);
+    px(ctx,12,7,'#9a5a2a',3,5); px(ctx,0,9,'#9a5a2a',3,4);
+    px(ctx,0,10,'#222',6,2);
+    px(ctx,3,2,'#d4a06a',8,6); px(ctx,2,0,'#5a3a1a',10,3);
+    px(ctx,4,4,'#000',2,1); px(ctx,8,4,'#000',2,1);
+  });
+
+  // tank
+  SPRITES.tank = makeSprite(24,14, ctx=>{
+    // tracks
+    ctx.fillStyle='#3a3a3a'; ctx.fillRect(0,10*PX,24*PX,4*PX);
+    ctx.fillStyle='#555';
+    for(let i=0;i<5;i++) { ctx.beginPath(); ctx.arc((2+i*5)*PX,12*PX,2*PX,0,Math.PI*2); ctx.fill(); }
+    // body
+    px(ctx,1,6,'#8B6914',22,5); px(ctx,3,4,'#aa8820',18,3);
+    // cannon
+    px(ctx,16,5,'#666633',8,2); px(ctx,22,4,'#555',2,4);
+    // cockpit
+    px(ctx,7,3,'#333300',9,3); px(ctx,8,3,'#88aaff',4,2);
+    // rivets
+    for(let i=2;i<22;i+=4){ px(ctx,i,6,'#ccaa44',1,1); px(ctx,i,10,'#ccaa44',1,1); }
+  });
+
+  // bullet
+  SPRITES.bullet = makeSprite(4,2, ctx=>{
+    px(ctx,0,0,'#ffdd00',4,2); px(ctx,0,0,'#fff',2,2);
+  });
+  SPRITES.ebullet = makeSprite(4,2, ctx=>{
+    px(ctx,0,0,'#ff4400',4,2); px(ctx,0,0,'#ff8800',2,2);
+  });
+  SPRITES.grenade = makeSprite(4,5, ctx=>{
+    ctx.fillStyle='#3a7a3a';
+    ctx.beginPath(); ctx.ellipse(2*PX,3*PX,2*PX,2*PX,0,0,Math.PI*2); ctx.fill();
+    px(ctx,1,0,'#888',2,2); px(ctx,0,0,'#ffdd00',4,1);
+  });
+  SPRITES.health = makeSprite(5,5, ctx=>{
+    px(ctx,2,0,'#ff3333',1,5); px(ctx,0,2,'#ff3333',5,1);
+    px(ctx,2,0,'#ff8888',1,1); // highlight
+  });
+
+  // explosion frames
+  SPRITES.exp = [];
+  const expC=['#ffff00','#ff8800','#ff4400','#ff2200','#661100'];
+  const expS=[5,7,9,10,8];
+  for(let i=0;i<5;i++){
+    const s=expS[i];
+    SPRITES.exp.push(makeSprite(s*2,s*2, ctx=>{
+      ctx.fillStyle=expC[i];
+      ctx.beginPath(); ctx.arc(s*PX,s*PX,(s-0.5)*PX,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,0.5)';
+      ctx.beginPath(); ctx.arc(s*0.6*PX,s*0.6*PX,s*0.4*PX,0,Math.PI*2); ctx.fill();
+    }));
+  }
+
+  // ground tile (for tiling)
+  SPRITES.gTile = makeSprite(8,8, ctx=>{
+    px(ctx,0,0,'#5a4a2a',8,8);
+    px(ctx,0,0,'#7a6a4a',8,1);
+    px(ctx,1,2,'#4a3a1a',3,2); px(ctx,5,3,'#4a3a1a',2,2);
+  });
+  SPRITES.pTile = makeSprite(8,5, ctx=>{
+    px(ctx,0,0,'#6a5a3a',8,5);
+    px(ctx,0,0,'#9a8a6a',8,1);
+    px(ctx,1,2,'#4a3a1a',3,1); px(ctx,5,2,'#4a3a1a',2,1);
+  });
+
+  // tree (composite, drawn directly)
+  SPRITES.crate = makeSprite(9,9, ctx=>{
+    px(ctx,0,0,'#8B6914',9,9); px(ctx,1,1,'#6a4a0a',7,7);
+    px(ctx,4,0,'#aa8830',1,9); px(ctx,0,4,'#aa8830',9,1);
+    px(ctx,4,4,'#cc9940',1,1);
+  });
+  SPRITES.barrel = makeSprite(7,9, ctx=>{
+    px(ctx,1,0,'#8B1A1A',5,9);
+    px(ctx,0,1,'#333',7,1); px(ctx,0,4,'#333',7,1); px(ctx,0,7,'#333',7,1);
+    px(ctx,2,2,'#ffdd00',3,2);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GAME ENGINE — pure vanilla, no frameworks
+// ═══════════════════════════════════════════════════════════════
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const W = 800, H = 320;
+const SCALE = 2;           // camera zoom
+const WORLD_W = 4800;
+const WORLD_H = 320;
+const GROUND_Y = 270;      // top of ground in world coords
+const GRAVITY = 900;
+
+// Input
+const keys = {};
+const justPressed = {};
+const justReleased = {};
+window.addEventListener('keydown', e => {
+  if(!keys[e.code]) justPressed[e.code]=true;
+  keys[e.code]=true;
+  if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+});
+window.addEventListener('keyup', e => {
+  keys[e.code]=false;
+  justReleased[e.code]=true;
+});
+function clearJust(){ for(const k in justPressed) delete justPressed[k]; for(const k in justReleased) delete justReleased[k]; }
+
+// ── ENTITY BASE ─────────────────────────────────────────────────
+class Entity {
+  constructor(x,y,w,h){
+    this.x=x; this.y=y; this.w=w; this.h=h;
+    this.vx=0; this.vy=0; this.onGround=false; this.alive=true;
+  }
+  get cx(){ return this.x+this.w/2; }
+  get cy(){ return this.y+this.h/2; }
+  get right(){ return this.x+this.w; }
+  get bottom(){ return this.y+this.h; }
+  overlaps(o){
+    return this.x<o.x+o.w && this.right>o.x && this.y<o.y+o.h && this.bottom>o.y;
+  }
+  // Apply gravity + move, then resolve against platform list
+  physicsStep(dt, platforms){
+    this.vy += GRAVITY*dt;
+    this.x += this.vx*dt;
+    this.y += this.vy*dt;
+    this.onGround = false;
+    // Clamp world X
+    if(this.x<0){ this.x=0; this.vx=0; }
+    if(this.right>WORLD_W){ this.x=WORLD_W-this.w; this.vx=0; }
+    // Resolve platforms (simple AABB, top-only for one-way & solid)
+    for(const p of platforms){
+      if(this.overlaps(p)){
+        const overlapTop = p.y - this.bottom;
+        const overlapBot = p.y+p.h - this.y;
+        const overlapL   = this.right - p.x;
+        const overlapR   = p.x+p.w - this.x;
+        const minV = Math.min(Math.abs(overlapTop),Math.abs(overlapBot),Math.abs(overlapL),Math.abs(overlapR));
+        if(!p.solid){
+          // one-way: only resolve from above
+          if(this.vy>=0 && Math.abs(overlapTop)<8){
+            this.y=p.y-this.h; this.vy=0; this.onGround=true;
+          }
+        } else {
+          if(minV===Math.abs(overlapTop) && this.vy>=0){ this.y=p.y-this.h; this.vy=0; this.onGround=true; }
+          else if(minV===Math.abs(overlapBot) && this.vy<0){ this.y=p.y+p.h; this.vy=0; }
+          else if(minV===Math.abs(overlapL)){ this.x=p.x-this.w; this.vx=0; }
+          else if(minV===Math.abs(overlapR)){ this.x=p.x+p.w; this.vx=0; }
+        }
+      }
+    }
+  }
+}
+
+// ── PLAYER ─────────────────────────────────────────────────────
+class Player extends Entity {
+  constructor(x,y){
+    super(x,y,14,22);
+    this.hp=3; this.grenades=5; this.facing=1;
+    this.frame=0; this.frameTimer=0;
+    this.invTimer=0; this.shootTimer=0;
+    this.state='stand'; // stand run jump duck
+    this.inTank=false;
+  }
+  update(dt, platforms, game){
+    if(this.inTank) return;
+    this.invTimer = Math.max(0, this.invTimer-dt);
+    this.shootTimer = Math.max(0, this.shootTimer-dt);
+
+    const left  = keys['ArrowLeft']  || keys['KeyA'];
+    const right = keys['ArrowRight'] || keys['KeyD'];
+    const up    = keys['ArrowUp']    || keys['KeyW'];
+    const down  = keys['ArrowDown'];
+    const shoot = keys['KeyZ']       || keys['Space'];
+    const grenade = justPressed['KeyX'];
+    const jumpPressed = justPressed['ArrowUp'] || justPressed['KeyW'];
+
+    // Duck
+    const ducking = down && this.onGround;
+    this.w = ducking ? 14 : 14;
+    this.h = ducking ? 16 : 22;
+
+    // Move
+    if(left)       { this.vx=-140; this.facing=-1; }
+    else if(right) { this.vx=140;  this.facing=1; }
+    else            { this.vx=0; }
+
+    // Jump
+    if(jumpPressed && this.onGround && !ducking) this.vy=-370;
+
+    // Board tank
+    if(jumpPressed && game.tank && game.tank.alive){
+      const dx = Math.abs(this.cx - game.tank.cx);
+      const dy = Math.abs(this.cy - game.tank.cy);
+      if(dx<60 && dy<50){ game.boardTank(); return; }
+    }
+
+    this.physicsStep(dt, platforms);
+
+    // Shoot
+    if(shoot && this.shootTimer<=0){
+      this.shootTimer=0.11;
+      game.spawnBullet(this.cx+this.facing*8, this.cy-3, this.facing*620, 0, false);
+    }
+    // Grenade
+    if(grenade && this.grenades>0){
+      this.grenades--;
+      game.spawnGrenade(this.cx, this.cy-8, this.facing*-260, -280);
+    }
+
+    // Anim state
+    if(!this.onGround) this.state='jump';
+    else if(ducking)   this.state='duck';
+    else if(this.vx!==0) this.state='run';
+    else                 this.state='stand';
+
+    if(this.state==='run'){
+      this.frameTimer+=dt;
+      if(this.frameTimer>0.12){ this.frameTimer=0; this.frame=1-this.frame; }
+    }
+  }
+  hit(game){ if(this.invTimer>0) return; this.hp--; this.invTimer=1.5; if(this.hp<=0) game.playerDead(); }
+  draw(cam){
+    if(!this.alive) return;
+    if(this.invTimer>0 && Math.floor(this.invTimer*10)%2===0) return; // blink
+    let spr;
+    switch(this.state){
+      case 'run':   spr=this.frame?SPRITES.pRun2:SPRITES.pRun1; break;
+      case 'jump':  spr=SPRITES.pJump; break;
+      case 'duck':  spr=SPRITES.pDuck; break;
+      default:      spr=SPRITES.pStand;
+    }
+    const sx = (this.x-cam.x)*SCALE;
+    const sy = (this.y-cam.y)*SCALE;
+    ctx.save();
+    if(this.facing<0){
+      ctx.scale(-1,1);
+      ctx.drawImage(spr, -sx-spr.width, sy);
+    } else {
+      ctx.drawImage(spr, sx, sy);
+    }
+    ctx.restore();
+  }
+}
+
+// ── ENEMY ──────────────────────────────────────────────────────
+class Enemy extends Entity {
+  constructor(x,y){
+    super(x,y,14,22);
+    this.hp=2; this.dir=-1; this.patrolTimer=1+Math.random()*2;
+    this.state='patrol'; this.shootTimer=1.5+Math.random()*1.5;
+    this.frame=0; this.frameTimer=0;
+  }
+  update(dt, platforms, game){
+    const px = game.player.inTank ? game.tank.cx : game.player.cx;
+    const dist = Math.abs(px - this.cx);
+    if(dist<350) this.state='chase';
+    else if(dist>420) this.state='patrol';
+
+    if(this.state==='patrol'){
+      this.patrolTimer-=dt;
+      if(this.patrolTimer<=0){ this.dir*=-1; this.patrolTimer=1.2+Math.random()*2; }
+      this.vx=this.dir*55;
+    } else {
+      this.dir=px>this.cx?1:-1;
+      this.vx=this.dir*75;
+      this.shootTimer-=dt;
+      if(this.shootTimer<=0 && dist>50 && dist<300){
+        this.shootTimer=1.6+Math.random()*1.2;
+        game.spawnBullet(this.cx-this.dir*8, this.cy-5, -this.dir*370, 0, true);
+      }
+    }
+    this.frameTimer+=dt;
+    if(this.frameTimer>0.14){ this.frameTimer=0; this.frame=1-this.frame; }
+    this.physicsStep(dt, platforms);
+  }
+  draw(cam){
+    const spr = this.frame ? SPRITES.eWalk2 : SPRITES.eWalk1;
+    const sx=(this.x-cam.x)*SCALE, sy=(this.y-cam.y)*SCALE;
+    ctx.save();
+    if(this.dir>0){ ctx.scale(-1,1); ctx.drawImage(spr,-sx-spr.width,sy); }
+    else ctx.drawImage(spr,sx,sy);
+    ctx.restore();
+  }
+}
+
+// ── TANK ───────────────────────────────────────────────────────
+class Tank extends Entity {
+  constructor(x,y){ super(x,y,72,32); this.shootTimer=0; }
+  update(dt,platforms,game){
+    const left=keys['ArrowLeft']||keys['KeyA'], right=keys['ArrowRight']||keys['KeyD'];
+    const shoot=keys['KeyZ']||keys['Space'];
+    const exit=justPressed['ArrowUp']||justPressed['KeyW'];
+    this.vx=left?-180:right?180:0;
+    this.shootTimer=Math.max(0,this.shootTimer-dt);
+    if(shoot && this.shootTimer<=0){ this.shootTimer=0.3; game.spawnBullet(this.right,this.cy-4,720,0,false,true); }
+    if(exit){ game.exitTank(); }
+    this.physicsStep(dt,platforms);
+  }
+  draw(cam){
+    ctx.drawImage(SPRITES.tank,(this.x-cam.x)*SCALE,(this.y-cam.y)*SCALE);
+  }
+}
+
+// ── BULLET ─────────────────────────────────────────────────────
+class Bullet extends Entity {
+  constructor(x,y,vx,vy,enemy,tankShell){
+    super(x,y,enemy?10:12,4);
+    this.vx=vx; this.vy=vy; this.enemy=enemy; this.tankShell=tankShell;
+    this.life=0.9;
+  }
+  update(dt){ this.x+=this.vx*dt; this.y+=this.vy*dt; this.life-=dt; if(this.life<=0) this.alive=false; }
+  draw(cam){
+    const spr=this.enemy?SPRITES.ebullet:SPRITES.bullet;
+    const sx=(this.x-cam.x)*SCALE, sy=(this.y-cam.y)*SCALE;
+    ctx.save();
+    if(this.vx<0){ ctx.scale(-1,1); ctx.drawImage(spr,-sx-spr.width,sy); }
+    else ctx.drawImage(spr,sx,sy);
+    ctx.restore();
+  }
+}
+
+// ── GRENADE ────────────────────────────────────────────────────
+class Grenade extends Entity {
+  constructor(x,y,vx,vy){ super(x,y,12,14); this.vx=vx; this.vy=vy; this.life=1.4; this.angle=0; }
+  update(dt,platforms,game){
+    this.life-=dt; if(this.life<=0){ game.explode(this.cx,this.cy); this.alive=false; return; }
+    this.angle+=dt*8*Math.sign(this.vx);
+    this.vy+=GRAVITY*dt;
+    this.x+=this.vx*dt; this.y+=this.vy*dt;
+    // simple ground bounce
+    if(this.bottom>=GROUND_Y){ this.y=GROUND_Y-this.h; this.vy*=-0.3; this.vx*=0.6; }
+    if(this.x<0){ this.x=0; this.vx=Math.abs(this.vx); }
+    if(this.right>WORLD_W){ this.x=WORLD_W-this.w; this.vx=-Math.abs(this.vx); }
+  }
+  draw(cam){
+    const sx=(this.cx-cam.x)*SCALE, sy=(this.cy-cam.y)*SCALE;
+    ctx.save(); ctx.translate(sx,sy); ctx.rotate(this.angle);
+    ctx.drawImage(SPRITES.grenade,-SPRITES.grenade.width/2,-SPRITES.grenade.height/2);
+    ctx.restore();
+  }
+}
+
+// ── EXPLOSION ──────────────────────────────────────────────────
+class Explosion {
+  constructor(x,y){ this.x=x; this.y=y; this.frame=0; this.timer=0; this.alive=true; }
+  update(dt){ this.timer+=dt; if(this.timer>0.07){ this.timer=0; this.frame++; if(this.frame>=5) this.alive=false; } }
+  draw(cam){
+    const spr=SPRITES.exp[Math.min(this.frame,4)];
+    ctx.drawImage(spr,(this.x-spr.width/2/SCALE-cam.x)*SCALE,(this.y-spr.height/2/SCALE-cam.y)*SCALE);
+  }
+}
+
+// ── PICKUP ─────────────────────────────────────────────────────
+class Pickup extends Entity {
+  constructor(x,y){ super(x,y,15,15); this.alive=true; }
+  draw(cam){ ctx.drawImage(SPRITES.health,(this.x-cam.x)*SCALE,(this.y-cam.y)*SCALE); }
+}
+
+// ── FLOAT TEXT ─────────────────────────────────────────────────
+class FloatText {
+  constructor(x,y,txt,col='#ffff00'){ this.x=x; this.y=y; this.txt=txt; this.col=col; this.life=0.8; this.alive=true; }
+  update(dt){ this.y-=40*dt; this.life-=dt; if(this.life<=0) this.alive=false; }
+  draw(cam){
+    ctx.globalAlpha=Math.max(0,this.life/0.8);
+    ctx.fillStyle=this.col; ctx.font='bold 11px Courier New';
+    ctx.fillText(this.txt,(this.x-cam.x)*SCALE,(this.y-cam.y)*SCALE);
+    ctx.globalAlpha=1;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════════════════════
+const game = {
+  score:0, lives:3,
+  player:null, tank:null,
+  enemies:[], bullets:[], grenades:[], explosions:[], pickups:[], floats:[],
+  platforms:[],
+  cam:{x:0,y:0},
+  state:'title', // title | play | dead | win
+  shakeTimer:0, shakeMag:0,
+
+  // ── INIT ──────────────────────────────────────────────────────
+  init(){
+    this.score=0; this.lives=3;
+    this.enemies=[]; this.bullets=[]; this.grenades=[];
+    this.explosions=[]; this.pickups=[]; this.floats=[];
+    this.platforms=[];
+    this.cam={x:0,y:0};
+    this.state='play';
+
+    // Build platforms
+    // Solid ground
+    this.platforms.push({x:0,y:GROUND_Y,w:WORLD_W,h:50,solid:true});
+    // One-way elevated platforms
+    const pdefs=[
+      {x:250,y:230,w:160},{x:500,y:210,w:128},{x:720,y:200,w:192},
+      {x:980,y:225,w:128},{x:1180,y:205,w:160},{x:1380,y:190,w:128},
+      {x:1600,y:220,w:192},{x:1820,y:205,w:128},{x:2060,y:195,w:160},
+      {x:2300,y:225,w:128},{x:2520,y:210,w:160},{x:2750,y:195,w:128},
+      {x:2970,y:225,w:192},{x:3200,y:210,w:128},{x:3440,y:195,w:160},
+      {x:3680,y:220,w:128},{x:3900,y:205,w:192},{x:4120,y:195,w:128},
+      {x:4340,y:215,w:160},
+    ];
+    pdefs.forEach(p=>this.platforms.push({x:p.x,y:p.y,w:p.w,h:12,solid:false}));
+
+    // Player
+    this.player = new Player(80, GROUND_Y-24);
+
+    // Tank
+    this.tank = new Tank(220, GROUND_Y-32);
+    this.tank.alive=true;
+
+    // Enemies
+    for(let x=500;x<WORLD_W-300;x+=170+Math.random()*130){
+      this.enemies.push(new Enemy(x, GROUND_Y-24));
+    }
+
+    // Pickups
+    for(let x=700;x<WORLD_W-300;x+=550){
+      this.pickups.push(new Pickup(x, GROUND_Y-18));
+    }
+  },
+
+  // ── TANK BOARDING ────────────────────────────────────────────
+  boardTank(){
+    this.player.inTank=true;
+    this.player.alive=true;
+    this.cam.follow=this.tank;
+  },
+  exitTank(){
+    this.player.inTank=false;
+    this.player.x=this.tank.x-20;
+    this.player.y=this.tank.y-24;
+    this.player.vx=0; this.player.vy=0;
+    this.cam.follow=this.player;
+  },
+
+  // ── SPAWN ────────────────────────────────────────────────────
+  spawnBullet(x,y,vx,vy,enemy,tank=false){
+    this.bullets.push(new Bullet(x,y,vx,vy,enemy,tank));
+  },
+  spawnGrenade(x,y,vx,vy){ this.grenades.push(new Grenade(x,y,vx,vy)); },
+
+  // ── EXPLODE ──────────────────────────────────────────────────
+  explode(x,y){
+    this.explosions.push(new Explosion(x,y));
+    this.shakeTimer=0.25; this.shakeMag=5;
+    // Kill nearby enemies
+    this.enemies.forEach(e=>{
+      if(!e.alive) return;
+      if(Math.hypot(e.cx-x,e.cy-y)<80){ e.alive=false; this.score+=100; this.explosions.push(new Explosion(e.cx,e.cy)); }
+    });
+  },
+
+  // ── PLAYER DEATH ─────────────────────────────────────────────
+  playerDead(){
+    this.lives--;
+    this.explosions.push(new Explosion(this.player.cx, this.player.cy));
+    if(this.lives<=0){ this.state='dead'; showOverlay('MISSION\nFAILED','PRESS ENTER TO RETRY'); return; }
+    // Respawn
+    this.player.hp=3; this.player.invTimer=2;
+    this.player.x=Math.max(50,this.player.x-80);
+    this.player.y=GROUND_Y-24; this.player.vx=0; this.player.vy=0;
+  },
+
+  // ── UPDATE ───────────────────────────────────────────────────
+  update(dt){
+    if(this.state!=='play') return;
+    const plats=this.platforms;
+
+    // Camera follow target
+    const followX = this.player.inTank ? this.tank.cx : this.player.cx;
+    const followY = this.player.inTank ? this.tank.cy : this.player.cy;
+    const targetCamX = followX - (W/SCALE/2);
+    const targetCamY = followY - (H/SCALE/2);
+    this.cam.x += (targetCamX - this.cam.x) * 8 * dt;
+    this.cam.y += (targetCamY - this.cam.y) * 8 * dt;
+    this.cam.x = Math.max(0, Math.min(WORLD_W - W/SCALE, this.cam.x));
+    this.cam.y = Math.max(0, Math.min(WORLD_H - H/SCALE, this.cam.y));
+
+    // Shake
+    if(this.shakeTimer>0){ this.shakeTimer-=dt; }
+
+    // Player
+    this.player.update(dt, plats, this);
+
+    // Tank
+    if(this.player.inTank && this.tank.alive) this.tank.update(dt,plats,this);
+
+    // Enemies (only near camera)
+    const camR=this.cam.x+W/SCALE;
+    this.enemies.forEach(e=>{
+      if(!e.alive) return;
+      if(e.x>this.cam.x-120 && e.x<camR+120) e.update(dt,plats,this);
+    });
+
+    // Bullets
+    this.bullets.forEach(b=>{ if(b.alive) b.update(dt); });
+
+    // Grenades
+    this.grenades.forEach(g=>{ if(g.alive) g.update(dt,plats,this); });
+
+    // Explosions
+    this.explosions.forEach(e=>{ if(e.alive) e.update(dt); });
+
+    // Floats
+    this.floats.forEach(f=>{ if(f.alive) f.update(dt); });
+
+    // ── COLLISION CHECKS (no recursion, plain loops) ──────────
+    // Player bullets vs enemies
+    this.bullets.forEach(b=>{
+      if(!b.alive || b.enemy) return;
+      this.enemies.forEach(e=>{
+        if(!e.alive || !b.alive) return;
+        if(b.overlaps(e)){
+          b.alive=false;
+          e.hp -= b.tankShell?2:1;
+          if(e.hp<=0){ e.alive=false; this.score+=100; this.explosions.push(new Explosion(e.cx,e.cy)); this.floats.push(new FloatText(e.cx,e.y-10,'+100','#ffff00')); }
+        }
+      });
+    });
+
+    // Enemy bullets vs player
+    if(!this.player.inTank){
+      this.bullets.forEach(b=>{
+        if(!b.alive || !b.enemy) return;
+        if(b.overlaps(this.player)){ b.alive=false; this.player.hit(this); }
+      });
+      // Enemy melee vs player
+      if(this.player.invTimer<=0){
+        this.enemies.forEach(e=>{
+          if(!e.alive) return;
+          if(e.overlaps(this.player)) this.player.hit(this);
+        });
+      }
+    }
+
+    // Tank vs enemies
+    if(this.player.inTank && this.tank.alive){
+      this.enemies.forEach(e=>{
+        if(!e.alive) return;
+        if(this.tank.overlaps(e)){ e.alive=false; this.score+=100; this.explosions.push(new Explosion(e.cx,e.cy)); }
+      });
+    }
+
+    // Player vs pickups
+    this.pickups.forEach(pk=>{
+      if(!pk.alive) return;
+      if(pk.overlaps(this.player)){ pk.alive=false; this.player.hp=Math.min(3,this.player.hp+1); this.floats.push(new FloatText(pk.cx,pk.y-10,'+HP','#44ff44')); this.score+=50; }
+    });
+
+    // Win check
+    const px2=this.player.inTank?this.tank.cx:this.player.cx;
+    if(px2>WORLD_W-120){ this.state='win'; showOverlay('MISSION\nCOMPLETE','SCORE: '+this.score+'\nPRESS ENTER TO PLAY AGAIN'); }
+
+    // Cleanup dead objects
+    this.enemies   = this.enemies.filter(e=>e.alive);
+    this.bullets   = this.bullets.filter(b=>b.alive);
+    this.grenades  = this.grenades.filter(g=>g.alive);
+    this.explosions= this.explosions.filter(e=>e.alive);
+    this.pickups   = this.pickups.filter(p=>p.alive);
+    this.floats    = this.floats.filter(f=>f.alive);
+
+    // Update HUD
+    document.getElementById('hs').textContent='SCORE: '+this.score;
+    document.getElementById('hl').textContent='LIVES: '+('❤️'.repeat(Math.max(0,this.lives))||'💀');
+  },
+
+  // ── DRAW ─────────────────────────────────────────────────────
+  draw(){
+    const cam=this.cam;
+    const ox = this.shakeTimer>0 ? (Math.random()-0.5)*this.shakeMag : 0;
+    const oy = this.shakeTimer>0 ? (Math.random()-0.5)*this.shakeMag : 0;
+
+    ctx.clearRect(0,0,W,H);
+    ctx.save();
+    ctx.translate(ox,oy);
+
+    if(this.state==='title'){
+      this.drawTitle();
+      ctx.restore(); return;
+    }
+
+    // ── SKY ──
+    const grd=ctx.createLinearGradient(0,0,0,H);
+    grd.addColorStop(0,'#000822'); grd.addColorStop(1,'#1a3a88');
+    ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+
+    // ── SUN (parallax 0.05) ──
+    ctx.fillStyle='rgba(255,204,0,0.9)';
+    ctx.beginPath(); ctx.arc(700-cam.x*0.05,55,28,0,Math.PI*2); ctx.fill();
+
+    // ── FAR MOUNTAINS (parallax 0.15) ──
+    ctx.fillStyle='rgba(34,51,85,0.7)';
+    for(let mx=0;mx<WORLD_W*0.5;mx+=140){
+      const bh=50+((mx*17)%90);
+      const sx=(mx-cam.x*0.15)*SCALE;
+      ctx.beginPath(); ctx.moveTo(sx,H); ctx.lineTo(sx+90*SCALE,H-bh*SCALE); ctx.lineTo(sx+180*SCALE,H); ctx.fill();
+    }
+
+    // ── TREES (parallax 0.45) ──
+    ctx.fillStyle='#3a7a1a';
+    for(let i=0;i<40;i++){
+      const tx=100+i*120+((i*37)%55);
+      const sx=(tx-cam.x*0.45)*SCALE;
+      if(sx<-40||sx>W+40) continue;
+      const th=30+((i*13)%20);
+      ctx.fillRect(sx+14,H-th*SCALE,8,(th-10)*SCALE);
+      ctx.beginPath(); ctx.arc(sx+18,(H-th*SCALE),18,0,Math.PI*2); ctx.fill();
+    }
+
+    // ── PLATFORMS (visual) ──
+    this.platforms.forEach(p=>{
+      const sx=(p.x-cam.x)*SCALE, sy=(p.y-cam.y)*SCALE;
+      const sw=p.w*SCALE, sh=p.h*SCALE;
+      if(sx+sw<0||sx>W) return;
+      if(p.solid){
+        // tile the ground
+        ctx.fillStyle='#5a4a2a';
+        ctx.fillRect(sx,sy,sw,sh);
+        ctx.fillStyle='#7a6a4a';
+        ctx.fillRect(sx,sy,sw,Math.min(4,sh));
+        ctx.fillStyle='rgba(0,0,0,0.2)';
+        for(let tx=0;tx<p.w;tx+=8){
+          if((Math.floor(tx/8)+Math.floor(0))%3===0) ctx.fillRect(sx+tx*SCALE+2,sy+8,6*SCALE-2,4*SCALE);
+        }
+      } else {
+        ctx.fillStyle='#6a5a3a'; ctx.fillRect(sx,sy,sw,sh);
+        ctx.fillStyle='#9a8a6a'; ctx.fillRect(sx,sy,sw,3);
+      }
+    });
+
+    // ── DECOR (crates/barrels) ──
+    for(let i=0;i<30;i++){
+      const dx=280+i*160+((i*73)%80);
+      const sx=(dx-cam.x)*SCALE;
+      if(sx<-40||sx>W+40) continue;
+      const spr=i%2?SPRITES.barrel:SPRITES.crate;
+      ctx.drawImage(spr,sx,(GROUND_Y-spr.height/SCALE-cam.y)*SCALE);
+    }
+
+    // ── TANK HINT ──
+    if(!this.player.inTank && this.tank && this.tank.alive){
+      const tx=(this.tank.cx-cam.x)*SCALE, ty=(this.tank.y-28-cam.y)*SCALE;
+      ctx.fillStyle='#f5a623'; ctx.font='bold 10px Courier New';
+      ctx.textAlign='center'; ctx.fillText('↑ BOARD',tx,ty); ctx.textAlign='left';
+    }
+
+    // ── PICKUPS ──
+    this.pickups.forEach(pk=>{ if(pk.alive) pk.draw(cam); });
+
+    // ── TANK ──
+    if(this.tank && this.tank.alive) this.tank.draw(cam);
+
+    // ── ENEMIES ──
+    this.enemies.forEach(e=>{ if(e.alive) e.draw(cam); });
+
+    // ── PLAYER ──
+    if(!this.player.inTank) this.player.draw(cam);
+
+    // ── BULLETS ──
+    this.bullets.forEach(b=>{ if(b.alive) b.draw(cam); });
+
+    // ── GRENADES ──
+    this.grenades.forEach(g=>{ if(g.alive) g.draw(cam); });
+
+    // ── EXPLOSIONS ──
+    this.explosions.forEach(e=>{ if(e.alive) e.draw(cam); });
+
+    // ── FLOAT TEXTS ──
+    this.floats.forEach(f=>{ if(f.alive) f.draw(cam); });
+
+    // ── GOAL FLAG ──
+    const gx=(WORLD_W-80-cam.x)*SCALE, gy=(GROUND_Y-90-cam.y)*SCALE;
+    ctx.strokeStyle='#f5a623'; ctx.lineWidth=3;
+    ctx.strokeRect(gx,gy,24*SCALE,70*SCALE);
+    ctx.fillStyle='rgba(245,166,35,0.2)'; ctx.fillRect(gx,gy,24*SCALE,70*SCALE);
+    ctx.fillStyle='#f5a623'; ctx.font='bold 9px Courier New';
+    ctx.fillText('GOAL',gx+2,gy-4);
+
+    // ── HUD OVERLAY ──
+    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0,0,W,24);
+    ctx.fillStyle='#ff6666'; ctx.font='bold 11px Courier New';
+    ctx.fillText('HP: '+('♥'.repeat(Math.max(0,this.player.hp))||'☠'),8,16);
+    ctx.fillStyle='#88ff88';
+    ctx.fillText('GRN: '+this.player.grenades, 100, 16);
+    if(this.player.inTank){ ctx.fillStyle='#f5a623'; ctx.fillText('[IN TANK]',180,16); }
+
+    ctx.restore();
+  },
+
+  drawTitle(){
+    const grd=ctx.createLinearGradient(0,0,0,H);
+    grd.addColorStop(0,'#000'); grd.addColorStop(1,'#001133');
+    ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#f5a623'; ctx.font='bold 36px Courier New'; ctx.textAlign='center';
+    ctx.fillText('METAL SLUG',W/2,90);
+    ctx.fillStyle='#555'; ctx.font='13px Courier New';
+    ctx.fillText('— C L O N E —',W/2,118);
+    ctx.fillStyle='#aaa'; ctx.font='10px Courier New';
+    ctx.fillText('← → MOVE     ↑/W JUMP     Z/SPACE SHOOT',W/2,158);
+    ctx.fillText('X GRENADE     ↑ near tank = BOARD TANK',W/2,176);
+    ctx.fillStyle='rgba(245,166,35,'+(0.5+0.5*Math.abs(Math.sin(Date.now()/500)))+')';
+    ctx.font='bold 12px Courier New';
+    ctx.fillText('PRESS ENTER TO START',W/2,220);
+    ctx.textAlign='left';
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// OVERLAY
+// ═══════════════════════════════════════════════════════════════
+function showOverlay(title,sub){
+  document.getElementById('ot').textContent=title;
+  document.getElementById('os').textContent=sub;
+  document.getElementById('over').classList.add('on');
+}
+function hideOverlay(){ document.getElementById('over').classList.remove('on'); }
+
+window.addEventListener('keydown', e=>{
+  if(e.code!=='Enter') return;
+  if(game.state==='title'){ hideOverlay(); game.init(); return; }
+  if(game.state==='dead'||game.state==='win'){ hideOverlay(); game.init(); return; }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// LOOP
+// ═══════════════════════════════════════════════════════════════
+let last=0;
+function loop(ts){
+  const dt=Math.min((ts-last)/1000, 0.05);
+  last=ts;
+  game.update(dt);
+  game.draw();
+  clearJust();
+  requestAnimationFrame(loop);
+}
+
+buildSprites();
+game.state='title';
+requestAnimationFrame(ts=>{ last=ts; requestAnimationFrame(loop); });
+</script>
+</body>
+</html>
