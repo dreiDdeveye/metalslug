@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>METAL SLUG</title>
+<title>METAL SLUG — STAGE 2</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000}
 #wrap{position:fixed;inset:0;width:100%;height:100%}
 canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
-#over{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.88);flex-direction:column;align-items:center;justify-content:center;color:#f5a623;font-size:30px;letter-spacing:5px;z-index:9;text-align:center}
+#over{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.88);flex-direction:column;align-items:center;justify-content:center;color:#00ff88;font-size:30px;letter-spacing:5px;z-index:9;text-align:center}
 #over .sub{font-size:14px;color:#888;margin-top:12px;letter-spacing:2px}
 #over.on{display:flex}
 #char-portrait{display:none}
@@ -26,12 +26,10 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
   <img id="enemy-char"     src="your-enemy.png"        alt="enemy"     style="display:none">
   <img id="enemy-char2"    src="your-enemy2.png"       alt="enemy2"    style="display:none">
   <img id="enemy-char3"    src="your-enemy3.png"       alt="enemy3"    style="display:none">
-  <img id="bg-image"       src="your-background.png"   alt="background" style="display:none">
+  <img id="bg-image"       src="stage2-bg.jpg"         alt="background" style="display:none">
   <img id="jump-tile"      src="jump.png"              alt="platform"  style="display:none">
-  <img id="tank-img"       src="tank.png"              alt="tank"      style="display:none">
-  <img id="boss-img"       src="stage1-finalboss.png"  alt="boss"      style="display:none">
+  <img id="boss2-img"      src="stage2-boss.png"       alt="boss2"     style="display:none">
 </div>
-
 <script>
 // ═══════════════════════════════════════════════════════════════
 // PIXEL ART RENDERER — draw sprites with 3-pixel scale
@@ -534,162 +532,240 @@ class Tank extends Entity {
 }
 
 // ── FINAL BOSS ─────────────────────────────────────────────────
-class FinalBoss extends Entity {
+class Boss2 extends Entity {
   constructor(x,y){
-    super(x, y, 30, 40);
-    this.hp=40; this.maxHp=40;
+    super(x,y,36,50);
+    this.hp=100; this.maxHp=100;        // up from 60
     this.dir=-1; this.facing=-1;
-    this.shootTimer=1.2;
-    this.grenadeTimer=2.5;
-    this.dashTimer=0;
+    this.shootTimer=0.5;                // up from 0.8
+    this.grenadeTimer=1.2;              // up from 1.8
+    this.dashTimer=2.0;                 // up from 3.0
+    this.teleportTimer=5.0;             // up from 8.0
+    this.shieldTimer=0;
+    this.shieldCd=8.0;                  // up from 15.0 — shields more often
+    this.minionTimer=12.0;              // up from 20.0
+    this.rocketTimer=4.0;               // NEW — rocket barrage
+    this.burstTimer=0;                  // NEW — burst fire mode
     this.burstCount=0;
-    this.burstTimer=0;
-    this.phase=1;         // 1=normal 2=aggressive 3=berserk
+    this.enrageTimer=0;                 // NEW — enrage on low HP
     this.alive=true;
     this.narrativeDone=false;
+    this.phase=1;
+    this.glowPulse=0;
   }
 
-  getPhase(){
-    const r = this.hp / this.maxHp;
-    if(r > 0.66) return 1;
-    if(r > 0.33) return 2;
-    return 3;
-  }
+  getPhase(){ const r=this.hp/this.maxHp; return r>0.66?1:r>0.33?2:3; }
 
-  update(dt, platforms, game){
-    const newPhase = this.getPhase();
-    if(newPhase !== this.phase){
-      this.phase = newPhase;
-      const msgs = ['','','PHASE 2 — GOING AGGRESSIVE!','PHASE 3 — BERSERK MODE!'];
-      if(msgs[newPhase]) game.showNarrative(msgs[newPhase], '#e63c2f');
+  update(dt,platforms,game){
+    const newPhase=this.getPhase();
+    if(newPhase!==this.phase && newPhase > this.phase){
+      this.phase=newPhase;
+      const msgs={2:'OVERCLOCKING — PHASE 2 INITIATED!',3:'CRITICAL MASS — FULL POWER ENGAGED!'};
+      if(msgs[newPhase]) game.showNarrative(msgs[newPhase],'#ff4400');
+      game.shakeTimer=0.8; game.shakeMag=12;
     }
 
-    const px   = game.player.inTank ? game.tank.cx : game.player.cx;
-    const py   = game.player.inTank ? game.tank.cy : game.player.cy;
-    const dist = Math.abs(px - this.cx);
+    const px=game.player.inTank?game.tank.cx:game.player.cx;
+    const dist=Math.abs(px-this.cx);
+    this.facing=px>this.cx?1:-1;
+    this.dir=this.facing;
+    this.glowPulse+=dt*3;
 
-    // Always face player (used for image flip only)
-    this.facing = px > this.cx ? 1 : -1;
-    // Movement direction = also toward player
-    this.dir = this.facing;
-
-    // Movement — charge in phase 3
-    const speed = this.phase === 3 ? 90 : this.phase === 2 ? 60 : 40;
-    this.vx = dist > 60 ? this.dir * speed : 0;
-
-    // ── SHOOT ──
-    this.shootTimer -= dt;
-    const shootCooldown = this.phase === 3 ? 0.35 : this.phase === 2 ? 0.6 : 1.0;
-    if(this.shootTimer <= 0 && dist < 800){
-      this.shootTimer = shootCooldown;
-      const bx = this.dir > 0 ? this.right : this.x;
-      const by = this.cy - 8;
-      const spd = 340;
-      game.spawnBullet(bx, by, this.dir*spd, 0, true);
-      // spread shots in phase 2+
-      if(this.phase >= 2){
-        game.spawnBullet(bx, by, this.dir*spd, -90, true);
-      }
-      // triple spread in phase 3
-      if(this.phase === 3){
-        game.spawnBullet(bx, by, this.dir*spd,  90, true);
-        game.spawnBullet(bx, by, this.dir*spd*0.85, -140, true);
-      }
+    // ── SHIELD ── more frequent in higher phases
+    const isShielded=this.shieldTimer>0;
+    if(isShielded) this.shieldTimer-=dt;
+    this.shieldCd=Math.max(0,this.shieldCd-dt);
+    const shieldCooldown=this.phase===3?5:this.phase===2?7:10;
+    const shieldDuration=this.phase===3?3.5:2.5;
+    if(this.shieldCd<=0){
+      this.shieldTimer=shieldDuration; this.shieldCd=shieldCooldown;
+      game.showNarrative('SHIELD ACTIVATED!','#00ccff');
+      game.floats.push(new FloatText(this.cx,this.y-20,'SHIELD!','#00ccff'));
     }
 
-    // ── GRENADES ──
-    this.grenadeTimer -= dt;
-    const grenadeCooldown = this.phase === 3 ? 1.2 : this.phase === 2 ? 2.0 : 3.5;
-    if(this.grenadeTimer <= 0 && dist < 600){
-      this.grenadeTimer = grenadeCooldown;
-      // Lob grenade toward player — arc over
-      const gvx = this.dir * (120 + Math.random()*80);
-      const gvy = -320 - Math.random()*80;
-      game.spawnGrenade(this.cx, this.cy - 10, gvx, gvy);
-      // Double grenade in phase 3
-      if(this.phase === 3){
-        game.spawnGrenade(this.cx, this.cy - 10, gvx*0.75, gvy*0.9);
+    // ── MOVEMENT — aggressive, zigzag in phase 3 ──
+    const speed=this.phase===3?140:this.phase===2?95:65;
+    this.vx=dist>40?this.dir*speed:0;
+    if(this.phase===3) this.vx+=Math.sin(this.glowPulse*2.5)*60;
+    if(this.phase>=2) this.vx+=Math.sin(this.glowPulse*0.8)*25;
+
+    // ── SHOOT — burst fire in phase 2+ ──
+    this.shootTimer-=dt;
+    const sc=this.phase===3?0.18:this.phase===2?0.32:0.55;
+    if(this.shootTimer<=0&&dist<1000){
+      this.shootTimer=sc;
+      const bx=this.dir>0?this.right:this.x;
+      const by=this.cy-10;
+      const spd=this.phase===3?520:this.phase===2?460:400;
+      game.spawnBullet(bx,by,this.dir*spd,0,true);
+      game.spawnBullet(bx,by,this.dir*spd,-120,true);
+      if(this.phase>=2){
+        game.spawnBullet(bx,by,this.dir*spd,120,true);
+        game.spawnBullet(bx,by,this.dir*spd,-240,true);
+      }
+      if(this.phase===3){
+        game.spawnBullet(bx,by,this.dir*spd,240,true);
+        game.spawnBullet(bx,by,this.dir*spd,-60,true);
+        game.spawnBullet(bx,by,this.dir*spd,60,true);
       }
     }
 
-    // ── DASH ATTACK (phase 2+) ──
-    this.dashTimer -= dt;
-    if(this.phase >= 2 && this.dashTimer <= 0 && dist < 300 && dist > 60){
-      this.dashTimer = this.phase === 3 ? 2.5 : 4.0;
-      this.vx = this.dir * 280; // dash burst
-      game.floats.push(new FloatText(this.cx, this.y-20, 'CHARGE!', '#ff4444'));
+    // ── GRENADES ── faster and more ──
+    this.grenadeTimer-=dt;
+    const gc=this.phase===3?0.6:this.phase===2?1.0:1.8;
+    if(this.grenadeTimer<=0&&dist<800){
+      this.grenadeTimer=gc;
+      const gvx=this.dir*(180+Math.random()*120);
+      game.spawnGrenade(this.cx,this.cy-10,gvx,-380);
+      game.spawnGrenade(this.cx,this.cy-10,gvx*0.7,-300);
+      if(this.phase>=2) game.spawnGrenade(this.cx,this.cy-10,gvx*1.2,-340);
+      if(this.phase===3) game.spawnGrenade(this.cx,this.cy-10,gvx*0.4,-260);
     }
 
-    this.physicsStep(dt, platforms);
+    // ── ROCKET BARRAGE (phase 2+) — volleys of fast bullets in an arc ──
+    this.rocketTimer-=dt;
+    const rc=this.phase===3?2.5:4.0;
+    if(this.rocketTimer<=0&&this.phase>=2&&dist<900){
+      this.rocketTimer=rc;
+      const bx=this.dir>0?this.right:this.x;
+      const rspd=this.phase===3?580:480;
+      for(let a=-3;a<=3;a++){
+        game.spawnBullet(bx,this.cy-5,this.dir*rspd,a*70,true);
+      }
+      game.floats.push(new FloatText(this.cx,this.y-25,'ROCKET BARRAGE!','#ff8800'));
+      game.shakeTimer=0.4; game.shakeMag=7;
+    }
+
+    // ── DASH — faster and more frequent ──
+    this.dashTimer-=dt;
+    const dc=this.phase===3?1.2:this.phase===2?2.0:3.5;
+    if(this.dashTimer<=0&&dist<500&&dist>40){
+      this.dashTimer=dc; this.vx=this.dir*(this.phase===3?500:400);
+      game.floats.push(new FloatText(this.cx,this.y-20,'DASH!','#ff4400'));
+    }
+
+    // ── TELEPORT — much more frequent ──
+    this.teleportTimer-=dt;
+    const tc=this.phase===3?3:this.phase===2?5:999;
+    if(this.teleportTimer<=0&&this.phase>=2){
+      this.teleportTimer=tc;
+      const newX=this.facing>0 ? Math.min(3100,px+200) : Math.max(50,px-200);
+      for(let i=0;i<4;i++) game.explosions.push(new Explosion(this.cx+(Math.random()-0.5)*30,this.cy));
+      this.x=newX; this.y=GROUND_Y-this.h;
+      for(let i=0;i<4;i++) game.explosions.push(new Explosion(this.cx+(Math.random()-0.5)*30,this.cy));
+      game.floats.push(new FloatText(this.cx,this.y-25,'TELEPORT!','#ff4400'));
+      game.shakeTimer=0.3; game.shakeMag=8;
+    }
+
+    // ── SPAWN MINIONS ── more often, stronger ──
+    this.minionTimer-=dt;
+    if(this.minionTimer<=0&&this.phase>=2){
+      this.minionTimer=this.phase===3?6:10;
+      const count=this.phase===3?4:2;
+      for(let i=0;i<count;i++){
+        const spawnDir=this.cx>px?1:-1;
+        const ex=this.cx+spawnDir*(80+i*70);
+        const e=new Enemy(ex,GROUND_Y-22);
+        e.hp=this.phase===3?3:2;
+        game.enemies.push(e);
+      }
+      game.floats.push(new FloatText(this.cx,this.y-30,'SUMMONING MINIONS!','#ff4444'));
+      game.showNarrative('MINIONS INCOMING!','#ff4444');
+    }
+
+    this.physicsStep(dt,platforms);
   }
 
   hit(game){
+    if(this.shieldTimer>0){
+      game.floats.push(new FloatText(this.cx,this.y-15,'BLOCKED!','#00ccff'));
+      game.shakeTimer=0.1; game.shakeMag=3;
+      return; // no damage
+    }
     this.hp--;
-    game.floats.push(new FloatText(this.cx, this.y-10, '-1', '#ff4444'));
-    if(this.hp <= 0){
-      this.alive = false;
-      game.score += 5000;
-      for(let i=0;i<6;i++) game.explosions.push(new Explosion(
-        this.cx + (Math.random()-0.5)*40,
-        this.cy + (Math.random()-0.5)*30
+    game.floats.push(new FloatText(this.cx,this.y-10,'-1','#00ff88'));
+    if(this.hp<=0){
+      this.alive=false;
+      game.score+=10000;
+      for(let i=0;i<10;i++) game.explosions.push(new Explosion(
+        this.cx+(Math.random()-0.5)*60, this.cy+(Math.random()-0.5)*40
       ));
-      game.floats.push(new FloatText(this.cx, this.y-30, 'BOSS DOWN! +5000', '#ffe94d'));
-      game.showNarrative('TARGET ELIMINATED. MISSION COMPLETE!', '#ffe94d');
-      setTimeout(()=>{ game.state='win'; showOverlay('MISSION\nCOMPLETE','SCORE: '+game.score+'\nPRESS ENTER TO PLAY AGAIN'); }, 2000);
+      game.floats.push(new FloatText(this.cx,this.y-40,'EXPERIMENT TERMINATED! +10000','#ffe94d'));
+      game.showNarrative('EXPERIMENT TERMINATED. ALL CLEAR.','#00ff88');
+      game.shakeTimer=1.5; game.shakeMag=12;
+      setTimeout(()=>{ game.state='win'; showOverlay('MISSION\nCOMPLETE','SCORE: '+game.score+'\nPRESS ENTER TO PLAY AGAIN'); },2500);
     }
   }
 
   draw(cam){
     if(!this.alive) return;
     const sx=(this.x-cam.x)*SCALE, sy=(this.y-cam.y)*SCALE;
-    const bossImg = window._bossImg;
+    const bossImg=window._boss2Img;
+    const pulse=0.85+0.15*Math.abs(Math.sin(this.glowPulse));
+
     ctx.save();
-    if(bossImg && bossImg.naturalWidth>0){
-      ctx.imageSmoothingEnabled=false;
-      const aspect = bossImg.naturalWidth / bossImg.naturalHeight;
-      const ih = this.h * SCALE * 1.773;
+    ctx.shadowColor=this.shieldTimer>0?'#00ccff':'#ff3300';
+    ctx.shadowBlur=24*pulse;
+
+    if(bossImg&&bossImg.naturalWidth>0){
+      ctx.imageSmoothingEnabled=true;
+      const aspect=bossImg.naturalWidth/bossImg.naturalHeight; // ~1.3 wide
+      // Size: base height on world hitbox, scale up visually
+      const ih = this.h * SCALE * 2.8;
       const iw = ih * aspect;
-      const cx2 = sx + (this.w*SCALE)/2;
-      // Image faces LEFT by default — flip when facing right
-      if(this.facing > 0){
+      // Center horizontally on hitbox, align bottom to ground
+      const cx2 = (this.x + this.w/2 - cam.x) * SCALE;
+      const groundY = (this.y + this.h - cam.y) * SCALE;
+      const drawY = groundY - ih * 0.82; // image has some bottom padding
+      // Image faces RIGHT by default — flip when facing left
+      if(this.facing < 0){
         ctx.translate(cx2, 0); ctx.scale(-1, 1);
-        ctx.drawImage(bossImg, -iw/2, sy, iw, ih);
+        ctx.drawImage(bossImg, -iw/2, drawY, iw, ih);
       } else {
-        ctx.drawImage(bossImg, cx2 - iw/2, sy, iw, ih);
+        ctx.drawImage(bossImg, cx2 - iw/2, drawY, iw, ih);
       }
     } else {
-      // Phase-colored fallback block
-      const col = this.phase===3?'#cc0000':this.phase===2?'#cc6600':'#006600';
-      ctx.fillStyle=col; ctx.fillRect(sx, sy, this.w*SCALE, this.h*SCALE);
+      ctx.fillStyle=`hsl(${0+Math.sin(this.glowPulse)*20},100%,35%)`;
+      ctx.fillRect(sx,sy,this.w*SCALE,this.h*SCALE);
+    }
+    ctx.shadowBlur=0;
+
+    // Shield bubble
+    if(this.shieldTimer>0){
+      const alpha=Math.min(1,this.shieldTimer)*0.5;
+      ctx.strokeStyle=`rgba(0,200,255,${alpha})`;
+      ctx.lineWidth=3;
+      const cr=(this.w*SCALE)/2+12;
+      ctx.beginPath();
+      ctx.arc(sx+this.w*SCALE/2, sy+this.h*SCALE/2, cr*(0.95+0.05*Math.sin(this.glowPulse*4)), 0, Math.PI*2);
+      ctx.stroke();
+      ctx.fillStyle=`rgba(0,200,255,${alpha*0.3})`;
+      ctx.fill();
     }
     ctx.restore();
 
-    // HP bar — scaled with SCALE
-    const barW = Math.round(SCALE*60), barH = Math.round(SCALE*4);
-    const bx = (this.x+this.w/2-cam.x)*SCALE - barW/2;
-    const by2 = sy - barH - Math.round(SCALE*3);
-    ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(bx, by2, barW, barH);
-    const ratio = Math.max(0, this.hp/this.maxHp);
-    ctx.fillStyle = ratio>0.66?'#e63c2f' : ratio>0.33?'#f5a623' : '#ff0000';
-    ctx.fillRect(bx+1, by2+1, (barW-2)*ratio, barH-2);
-    ctx.strokeStyle='#ff4444'; ctx.lineWidth=1; ctx.strokeRect(bx, by2, barW, barH);
-    const fs = Math.max(8, Math.round(SCALE*4));
+    // HP bar
+    const barW=Math.round(SCALE*70), barH=Math.round(SCALE*4);
+    const bx=(this.x+this.w/2-cam.x)*SCALE-barW/2;
+    const by2=sy-barH-Math.round(SCALE*3);
+    ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(bx,by2,barW,barH);
+    const ratio=Math.max(0,this.hp/this.maxHp);
+    ctx.fillStyle=ratio>0.66?'#ff4400':ratio>0.33?'#ff8800':'#ff0000';
+    ctx.fillRect(bx+1,by2+1,(barW-2)*ratio,barH-2);
+    ctx.strokeStyle='#ff4400'; ctx.lineWidth=1; ctx.strokeRect(bx,by2,barW,barH);
+    const fs=Math.max(8,Math.round(SCALE*4));
     ctx.fillStyle='#fff'; ctx.font=`bold ${fs}px Courier New`; ctx.textAlign='center';
-    ctx.fillText(`BOSS  ${this.hp}/${this.maxHp}`, bx+barW/2, by2-2);
-    ctx.textAlign='left';
-
-    // Phase indicator
-    if(this.phase > 1){
-      const phaseCol = this.phase===3?'#ff0000':'#f5a623';
-      ctx.fillStyle=phaseCol; ctx.font=`bold ${Math.max(7,Math.round(SCALE*3.5))}px Courier New`;
-      ctx.textAlign='center';
-      ctx.fillText(this.phase===3?'★ BERSERK ★':'★ AGGRESSIVE ★', bx+barW/2, by2 - fs - 2);
-      ctx.textAlign='left';
+    ctx.fillText(`SPIDER MECH  ${this.hp}/${this.maxHp}`,bx+barW/2,by2-2);
+    const phaseLabels=['','','★ OVERCLOCKED ★','★ CRITICAL MASS ★'];
+    if(this.phase>1){
+      ctx.fillStyle='#ff4400'; ctx.font=`bold ${Math.max(7,Math.round(SCALE*3.5))}px Courier New`;
+      ctx.fillText(phaseLabels[this.phase],bx+barW/2,by2-fs-2);
     }
+    ctx.textAlign='left';
   }
 }
 
-// ── BULLET ─────────────────────────────────────────────────────
+
 class Bullet extends Entity {
   constructor(x,y,vx,vy,enemy,tankShell){
     super(x,y,enemy?10:12,4);
@@ -761,57 +837,68 @@ class FloatText {
 // ═══════════════════════════════════════════════════════════════
 const game = {
   score:0, lives:3,
+  stage:1,
   player:null, tank:null,
   enemies:[], bullets:[], grenades:[], explosions:[], pickups:[], floats:[],
   platforms:[],
   cam:{x:0,y:0},
   state:'title', // title | play | dead | win
   shakeTimer:0, shakeMag:0,
+  boss:null, boss2:null,
 
   // ── INIT ──────────────────────────────────────────────────────
+
+  // ── STAGE 2 INIT ─────────────────────────────────────────────
   init(){
-    this.score=0; this.lives=3;
+    this.stage=2;
+    const savedScore=parseInt(sessionStorage.getItem('ms_score')||'0');
+    const savedLives=parseInt(sessionStorage.getItem('ms_lives')||'3');
+    this.score=savedScore; this.lives=Math.max(1,savedLives);
     this.enemies=[]; this.bullets=[]; this.grenades=[];
     this.explosions=[]; this.pickups=[]; this.floats=[];
     this.platforms=[];
     this.cam={x:0,y:0};
     this.narrative=null;
-    this.state='play';
+    this.boss=null;
 
-    // Build platforms
-    // Solid ground
-    this.platforms.push({x:0,y:GROUND_Y,w:WORLD_W,h:50,solid:true});
-    // Elevated platforms — Y in world units (0=top, GROUND_Y=135=floor)
-    const pdefs=[
-      {x:250, y:110,w:160},{x:500, y:100,w:128},{x:720, y: 95,w:192},
-      {x:980, y:108,w:128},{x:1180,y: 98,w:160},{x:1380,y: 90,w:128},
-      {x:1600,y:105,w:192},{x:1820,y: 98,w:128},{x:2060,y: 92,w:160},
-      {x:2300,y:108,w:128},{x:2520,y:100,w:160},{x:2750,y: 92,w:128},
-      {x:2970,y:108,w:192},{x:3200,y:100,w:128},{x:3440,y: 92,w:160},
-      {x:3680,y:105,w:128},{x:3900,y: 98,w:192},{x:4120,y: 92,w:128},
-      {x:4340,y:102,w:160},
+    // Shorter lab level, more platforms for jumping
+    const S2W=3200;
+    this.stage2WorldW=S2W;
+    this.platforms.push({x:0,y:GROUND_Y,w:S2W,h:50,solid:true,stage2:true});
+    const pdefs2=[
+      {x:200,y:108,w:140},{x:440,y:95,w:100},{x:620,y:82,w:140},
+      {x:820,y:95,w:100},{x:1000,y:108,w:140},{x:1200,y:82,w:120},
+      {x:1420,y:95,w:140},{x:1650,y:108,w:100},{x:1880,y:82,w:140},
+      {x:2100,y:95,w:120},{x:2320,y:108,w:140},{x:2560,y:82,w:100},
+      {x:2780,y:95,w:140},{x:2960,y:108,w:200},
     ];
-    pdefs.forEach(p=>this.platforms.push({x:p.x,y:p.y,w:p.w,h:8,solid:false}));
+    pdefs2.forEach(p=>this.platforms.push({x:p.x,y:p.y,w:p.w,h:8,solid:false,stage2:true}));
 
-    // Player
+    // More enemies in stage 2 — faster and tougher
+    for(let x=300;x<S2W-500;x+=130+Math.random()*80){
+      const e=new Enemy(x,GROUND_Y-22);
+      e.hp=2; e.speed=90;
+      this.enemies.push(e);
+    }
+
+    // More pickups
+    for(let x=400;x<S2W-300;x+=400){
+      this.pickups.push(new Pickup(x,GROUND_Y-12));
+    }
+
+    // Player — always create fresh
     this.player = new Player(80, GROUND_Y-22);
+    this.player.hp=3;
+    this.player.inTank=false;
 
-    // Tank
-    this.tank = new Tank(220, GROUND_Y-32);
-    this.tank.alive=true;
+    // Tank exists but is disabled in stage 2
+    this.tank = new Tank(0, GROUND_Y-32);
+    this.tank.alive=false;
 
-    // Enemies
-    for(let x=500;x<WORLD_W-600;x+=170+Math.random()*130){
-      this.enemies.push(new Enemy(x, GROUND_Y-22));
-    }
+    // Boss 2 spawns at end
+    this.boss2=new Boss2(S2W-380,GROUND_Y-50);
 
-    // Pickups
-    for(let x=700;x<WORLD_W-300;x+=550){
-      this.pickups.push(new Pickup(x, GROUND_Y-12));
-    }
-
-    // Final Boss
-    this.boss = new FinalBoss(WORLD_W - 400, GROUND_Y - 50);
+    this.state='play';
   },
 
   // ── TANK BOARDING ────────────────────────────────────────────
@@ -842,8 +929,8 @@ const game = {
       if(!e.alive) return;
       if(Math.hypot(e.cx-x,e.cy-y)<80){ e.alive=false; this.score+=100; this.explosions.push(new Explosion(e.cx,e.cy)); }
     });
-    if(this.boss && this.boss.alive && Math.hypot(this.boss.cx-x,this.boss.cy-y)<100){
-      this.boss.hit(this);
+    if(this.boss2 && this.boss2.alive && Math.hypot(this.boss2.cx-x,this.boss2.cy-y)<110){
+      this.boss2.hit(this);
     }
   },
 
@@ -867,23 +954,24 @@ const game = {
     if(this.state!=='play') return;
     const plats=this.platforms;
 
-    // Boss encounter trigger — narrative when player first gets close
-    if(this.boss && this.boss.alive && !this.boss.narrativeDone){
-      const px = this.player.inTank ? this.tank.cx : this.player.cx;
-      if(Math.abs(px - this.boss.cx) < 600){
-        this.boss.narrativeDone = true;
-        this.showNarrative('⚠ UNKNOWN ENTITY DETECTED — ELIMINATE THE TARGET!', '#e63c2f');
-        setTimeout(()=> this.showNarrative('TARGET IS HEAVILY ARMED — WATCH FOR GRENADES!', '#f5a623'), 3800);
+    // Boss 2 encounter trigger
+    if(this.boss2 && this.boss2.alive && !this.boss2.narrativeDone){
+      const px = this.player.cx;
+      if(Math.abs(px - this.boss2.cx) < 700){
+        this.boss2.narrativeDone = true;
+        this.showNarrative('⚠ EXPERIMENT XB-7 AWAKENING — MAXIMUM THREAT!', '#ff4400');
+        setTimeout(()=> this.showNarrative('SPIDER MECH DETECTED — SHIELD BLOCKS ALL DAMAGE!', '#ff8800'), 3800);
       }
     }
 
     // Camera follow target
     const followX = this.player.inTank ? this.tank.cx : this.player.cx;
     const followY = this.player.inTank ? this.tank.cy : this.player.cy;
+    const activeWorldW = 3200;
     const vw = W/SCALE;
     const targetCamX = followX - vw/2;
     this.cam.x += (targetCamX - this.cam.x) * 8 * dt;
-    this.cam.x = Math.max(0, Math.min(WORLD_W - vw, this.cam.x));
+    this.cam.x = Math.max(0, Math.min(activeWorldW - vw, this.cam.x));
     this.cam.y = 0; // flat world, no vertical scroll
 
     // Shake
@@ -903,7 +991,7 @@ const game = {
     });
 
     // Boss
-    if(this.boss && this.boss.alive) this.boss.update(dt, plats, this);
+    if(this.boss2 && this.boss2.alive) this.boss2.update(dt, plats, this);
 
     // Bullets
     this.bullets.forEach(b=>{ if(b.alive) b.update(dt); });
@@ -929,10 +1017,10 @@ const game = {
           if(e.hp<=0){ e.alive=false; this.score+=100; this.explosions.push(new Explosion(e.cx,e.cy)); this.floats.push(new FloatText(e.cx,e.y-10,'+100','#ffff00')); }
         }
       });
-      // Player bullets vs boss
-      if(this.boss && this.boss.alive && b.alive && b.overlaps(this.boss)){
+      // Player bullets vs boss2
+      if(this.boss2 && this.boss2.alive && b.alive && b.overlaps(this.boss2)){
         b.alive=false;
-        this.boss.hit(this);
+        this.boss2.hit(this);
       }
     });
 
@@ -948,8 +1036,7 @@ const game = {
           if(!e.alive) return;
           if(e.overlaps(this.player)) this.player.hit(this);
         });
-        // Boss melee vs player
-        if(this.boss && this.boss.alive && this.boss.overlaps(this.player)){
+        if(this.boss2 && this.boss2.alive && this.boss2.overlaps(this.player)){
           this.player.hit(this);
         }
       }
@@ -1103,7 +1190,7 @@ const game = {
     this.enemies.forEach(e=>{ if(e.alive) e.draw(cam); });
 
     // ── BOSS ──
-    if(this.boss && this.boss.alive) this.boss.draw(cam);
+    if(this.boss2 && this.boss2.alive) this.boss2.draw(cam);
 
     // ── PLAYER ──
     if(!this.player.inTank) this.player.draw(cam);
@@ -1261,6 +1348,12 @@ const game = {
     ctx.fillRect(W/2-scoreW/2-8, 6, scoreW+16, scoreFs+8);
     ctx.fillStyle='#f5a623'; ctx.font=`bold ${scoreFs}px Courier New`;
     ctx.textAlign='center'; ctx.fillText('SCORE: '+this.score, W/2, 8+scoreFs); ctx.textAlign='left';
+    // Stage 2 indicator
+    const stgFs=Math.max(9,Math.round(SCALE*4.5));
+    ctx.fillStyle='#00ff88';
+    ctx.font=`bold ${stgFs}px Courier New`; ctx.textAlign='center';
+    ctx.fillText('STAGE 2', W/2, 8+scoreFs+stgFs+2);
+    ctx.textAlign='left';
 
     // ── LIVES — top right ──
     const livesFs=Math.max(10,Math.round(s*5));
@@ -1369,7 +1462,7 @@ buildSprites();
   loadImg('bg-image',    '_bgImg');
   loadImg('jump-tile',   '_jumpTile');
   loadImg('tank-img',    '_tankImg');
-  loadImg('boss-img',    '_bossImg');
+  loadImg('boss2-img',   '_boss2Img');
 
   // Load all 3 enemy images into an array
   window._enemyImgArr = [];
@@ -1383,7 +1476,7 @@ buildSprites();
   });
 })();
 
-game.state='title';
+game.stage=2; game.init();
 requestAnimationFrame(ts=>{ last=ts; requestAnimationFrame(loop); });
 </script>
 </body>

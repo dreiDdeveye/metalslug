@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>METAL SLUG</title>
+<title>METAL SLUG — STAGE 1</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000}
@@ -31,7 +31,6 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
   <img id="tank-img"       src="tank.png"              alt="tank"      style="display:none">
   <img id="boss-img"       src="stage1-finalboss.png"  alt="boss"      style="display:none">
 </div>
-
 <script>
 // ═══════════════════════════════════════════════════════════════
 // PIXEL ART RENDERER — draw sprites with 3-pixel scale
@@ -634,8 +633,12 @@ class FinalBoss extends Entity {
         this.cy + (Math.random()-0.5)*30
       ));
       game.floats.push(new FloatText(this.cx, this.y-30, 'BOSS DOWN! +5000', '#ffe94d'));
-      game.showNarrative('TARGET ELIMINATED. MISSION COMPLETE!', '#ffe94d');
-      setTimeout(()=>{ game.state='win'; showOverlay('MISSION\nCOMPLETE','SCORE: '+game.score+'\nPRESS ENTER TO PLAY AGAIN'); }, 2000);
+      game.showNarrative('TARGET ELIMINATED. STAGE 2 INCOMING...', '#ffe94d');
+      setTimeout(()=>{
+        sessionStorage.setItem('ms_score', game.score);
+        sessionStorage.setItem('ms_lives', game.lives);
+        window.location.href = 'stage2.html';
+      }, 2500);
     }
   }
 
@@ -689,7 +692,7 @@ class FinalBoss extends Entity {
   }
 }
 
-// ── BULLET ─────────────────────────────────────────────────────
+// ── BOSS 2 — ALIEN EXPERIMENT ──────────────────────────────────
 class Bullet extends Entity {
   constructor(x,y,vx,vy,enemy,tankShell){
     super(x,y,enemy?10:12,4);
@@ -761,21 +764,24 @@ class FloatText {
 // ═══════════════════════════════════════════════════════════════
 const game = {
   score:0, lives:3,
+  stage:1,
   player:null, tank:null,
   enemies:[], bullets:[], grenades:[], explosions:[], pickups:[], floats:[],
   platforms:[],
   cam:{x:0,y:0},
   state:'title', // title | play | dead | win
   shakeTimer:0, shakeMag:0,
+  boss:null, boss2:null,
 
   // ── INIT ──────────────────────────────────────────────────────
   init(){
-    this.score=0; this.lives=3;
+    this.score=0; this.lives=3; this.stage=1; this.boss2=null;
     this.enemies=[]; this.bullets=[]; this.grenades=[];
     this.explosions=[]; this.pickups=[]; this.floats=[];
     this.platforms=[];
     this.cam={x:0,y:0};
     this.narrative=null;
+    this.boss=null; this.boss2=null;
     this.state='play';
 
     // Build platforms
@@ -810,8 +816,9 @@ const game = {
       this.pickups.push(new Pickup(x, GROUND_Y-12));
     }
 
-    // Final Boss
+    // Final Boss Stage 1
     this.boss = new FinalBoss(WORLD_W - 400, GROUND_Y - 50);
+    this.boss2 = null;
   },
 
   // ── TANK BOARDING ────────────────────────────────────────────
@@ -867,7 +874,7 @@ const game = {
     if(this.state!=='play') return;
     const plats=this.platforms;
 
-    // Boss encounter trigger — narrative when player first gets close
+    // Boss 1 encounter trigger
     if(this.boss && this.boss.alive && !this.boss.narrativeDone){
       const px = this.player.inTank ? this.tank.cx : this.player.cx;
       if(Math.abs(px - this.boss.cx) < 600){
@@ -880,10 +887,11 @@ const game = {
     // Camera follow target
     const followX = this.player.inTank ? this.tank.cx : this.player.cx;
     const followY = this.player.inTank ? this.tank.cy : this.player.cy;
+    const activeWorldW = WORLD_W;
     const vw = W/SCALE;
     const targetCamX = followX - vw/2;
     this.cam.x += (targetCamX - this.cam.x) * 8 * dt;
-    this.cam.x = Math.max(0, Math.min(WORLD_W - vw, this.cam.x));
+    this.cam.x = Math.max(0, Math.min(activeWorldW - vw, this.cam.x));
     this.cam.y = 0; // flat world, no vertical scroll
 
     // Shake
@@ -1383,7 +1391,7 @@ buildSprites();
   });
 })();
 
-game.state='title';
+game.stage=1; game.state='title';
 requestAnimationFrame(ts=>{ last=ts; requestAnimationFrame(loop); });
 </script>
 </body>

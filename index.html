@@ -101,40 +101,6 @@ html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;
 }
 @keyframes scan{0%{transform:translateY(-50%)}100%{transform:translateY(0%)}}
 
-/* ─── STEP 1: HERO ─────────────────────────────────────────── */
-#logo-eyebrow{
-  position:relative;z-index:1;
-  font-size:clamp(8px,1.3vw,10px);letter-spacing:9px;color:#333;
-  text-transform:uppercase;margin-bottom:6px;
-  animation:fi .8s both;
-}
-#logo-main{
-  position:relative;z-index:1;
-  font-family:'Black Ops One',cursive;
-  font-size:clamp(52px,12vw,96px);
-  line-height:.88;text-align:center;letter-spacing:-2px;
-  background:linear-gradient(180deg,#ffe94d 0%,#f5a623 48%,#b85a10 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-  animation:logo-glow 3s ease-in-out infinite alternate, fi .8s both;
-}
-@keyframes logo-glow{
-  from{filter:drop-shadow(0 0 10px rgba(245,166,35,.35))}
-  to{filter:drop-shadow(0 0 28px rgba(245,166,35,.85)) drop-shadow(0 0 70px rgba(245,166,35,.25))}
-}
-#logo-sub{
-  position:relative;z-index:1;
-  font-family:'Black Ops One',cursive;
-  font-size:clamp(12px,2.5vw,18px);
-  color:var(--re);letter-spacing:8px;margin-top:4px;text-align:center;
-  animation:fi .8s .15s both;
-}
-#hero-desc{
-  position:relative;z-index:1;
-  margin-top:18px;font-size:clamp(9px,1.6vw,11px);color:#3a3a3a;
-  letter-spacing:2px;text-align:center;line-height:1.8;
-  animation:fi .8s .3s both;
-}
-
 /* ─── STEP 2: FEATURES ─────────────────────────────────────── */
 .s-title{
   position:relative;z-index:1;
@@ -276,6 +242,107 @@ html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;
 .trail{position:fixed;z-index:896;pointer-events:none;width:4px;height:4px;border-radius:50%;
   background:rgba(245,166,35,.7);transition:opacity .4s,transform .4s}
 
+/* ─── HERO SPLIT LAYOUT ─────────────────────────────────────── */
+#hero-split{
+  position:relative;z-index:1;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:24px;width:100%;
+}
+#hero-left{
+  flex:1;display:flex;flex-direction:column;align-items:flex-start;
+}
+#logo-eyebrow{
+  font-size:clamp(8px,1.3vw,10px);letter-spacing:9px;color:#2e2e2e;
+  text-transform:uppercase;margin-bottom:6px;
+  animation:fi .8s both;
+}
+#logo-main{
+  font-family:'Black Ops One',cursive;
+  font-size:clamp(44px,9vw,80px);
+  line-height:.88;letter-spacing:-2px;
+  background:linear-gradient(180deg,#ffe94d 0%,#f5a623 48%,#b85a10 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:logo-glow 3s ease-in-out infinite alternate, fi .8s both;
+}
+@keyframes logo-glow{
+  from{filter:drop-shadow(0 0 10px rgba(245,166,35,.35))}
+  to{filter:drop-shadow(0 0 28px rgba(245,166,35,.85)) drop-shadow(0 0 70px rgba(245,166,35,.25))}
+}
+#logo-sub{
+  font-family:'Black Ops One',cursive;
+  font-size:clamp(11px,2vw,16px);
+  color:var(--re);letter-spacing:7px;margin-top:4px;
+  animation:fi .8s .15s both;
+}
+#hero-desc{
+  margin-top:14px;font-size:clamp(8px,1.4vw,10px);color:#2e2e2e;
+  letter-spacing:2px;line-height:2;
+  animation:fi .8s .3s both;
+}
+
+/* ─── CHARACTER SLOT ────────────────────────────────────────── */
+#char-slot{
+  flex-shrink:0;
+  width:clamp(140px,22vw,200px);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  animation:fi .8s .25s both;
+}
+#char-inner{
+  position:relative;
+  width:100%;
+  aspect-ratio:1/1.6;
+  background:linear-gradient(160deg,#0e0e0e 0%,#070707 100%);
+  border:1px solid #1e1e1e;
+  border-radius:2px;
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 0 30px rgba(0,0,0,.8), 0 0 20px rgba(245,166,35,.04);
+}
+/* subtle scanline inside slot */
+#char-inner::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.1) 3px,rgba(0,0,0,.1) 4px);
+}
+#char-placeholder{
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:12px;
+}
+#char-ph-icon{
+  width:clamp(56px,8vw,80px);
+  height:auto;
+  opacity:.18;
+  animation:char-idle 3s ease-in-out infinite;
+}
+@keyframes char-idle{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-5px)}
+}
+#char-ph-label{
+  font-size:8px;letter-spacing:3px;color:#252525;
+  text-align:center;text-transform:uppercase;line-height:1.8;
+}
+
+/* corner brackets */
+.bracket{
+  position:absolute;width:14px;height:14px;
+  border-color:var(--or);border-style:solid;opacity:.35;
+  animation:bracket-pulse 2.5s ease-in-out infinite alternate;
+}
+.bracket.tl{top:6px;left:6px;border-width:2px 0 0 2px}
+.bracket.tr{top:6px;right:6px;border-width:2px 2px 0 0}
+.bracket.bl{bottom:6px;left:6px;border-width:0 0 2px 2px}
+.bracket.br{bottom:6px;right:6px;border-width:0 2px 2px 0}
+@keyframes bracket-pulse{from{opacity:.2}to{opacity:.6}}
+
+#char-caption{
+  font-size:7px;letter-spacing:2px;color:#222;text-align:center;
+  text-transform:uppercase;
+}
+#char-caption code{
+  color:#2e2e2e;background:rgba(255,255,255,.04);
+  padding:1px 4px;border-radius:2px;font-family:'Share Tech Mono',monospace;
+}
+
 /* ─── UTIL ──────────────────────────────────────────────────── */
 @keyframes fi{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .divline{
@@ -312,16 +379,55 @@ html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;
         <span class="mtxt">SNK CORPORATION · RUN AND GUN</span>
         <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
       </div>
-      <div class="cbody">
-        <div id="logo-eyebrow">Operation: STEEL WIND</div>
-        <div id="logo-main">METAL<br>SLUG</div>
-        <div id="logo-sub">RUN &amp; GUN</div>
-        <div id="hero-desc">
-          SIDE-SCROLLING ARCADE ACTION · PIXEL SOLDIERS · TANK WARFARE<br>
-          SURVIVE THE ASSAULT — REACH THE OBJECTIVE
-        </div>
-        <div class="nav-row" style="margin-top:28px">
-          <button class="btn-next" onclick="goStep(2)">BRIEFING &nbsp;›</button>
+      <div class="cbody" style="padding:28px 32px 24px">
+        <div id="hero-split">
+
+          <!-- LEFT: text -->
+          <div id="hero-left">
+            <div id="logo-eyebrow">Operation: STEEL WIND</div>
+            <div id="logo-main">METAL<br>SLUG</div>
+            <div id="logo-sub">RUN &amp; GUN</div>
+            <div id="hero-desc">
+              SIDE-SCROLLING ARCADE ACTION<br>
+              PIXEL SOLDIERS · TANK WARFARE<br>
+              SURVIVE THE ASSAULT
+            </div>
+            <div class="nav-row" style="margin-top:22px">
+              <button class="btn-next" onclick="goStep(2)">BRIEFING &nbsp;›</button>
+            </div>
+          </div>
+
+          <!-- RIGHT: character placeholder -->
+          <div id="char-slot">
+            <div id="char-inner">
+              <img id="char-img" src="your-character.png" alt="character" style="display:block;width:100%;height:100%;object-fit:contain;object-position:bottom center;image-rendering:pixelated"/>
+              <div id="char-placeholder" style="display:none">
+                <svg id="char-ph-icon" viewBox="0 0 48 62" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="16" y="1" width="16" height="5" rx="1" fill="#252525"/>
+                  <rect x="17" y="5" width="14" height="11" rx="2" fill="#252525"/>
+                  <rect x="20" y="9" width="3" height="2" rx=".5" fill="#161616"/>
+                  <rect x="25" y="9" width="3" height="2" rx=".5" fill="#161616"/>
+                  <rect x="15" y="16" width="18" height="14" rx="1" fill="#1e1e1e"/>
+                  <rect x="15" y="27" width="18" height="3" fill="#161616"/>
+                  <rect x="8" y="17" width="7" height="10" rx="1" fill="#1e1e1e"/>
+                  <rect x="33" y="17" width="7" height="10" rx="1" fill="#1e1e1e"/>
+                  <rect x="37" y="21" width="9" height="3" rx="1" fill="#141414"/>
+                  <rect x="16" y="30" width="7" height="16" rx="1" fill="#1e1e1e"/>
+                  <rect x="25" y="30" width="7" height="16" rx="1" fill="#1e1e1e"/>
+                  <rect x="14" y="44" width="10" height="5" rx="1" fill="#161616"/>
+                  <rect x="24" y="44" width="10" height="5" rx="1" fill="#161616"/>
+                  <ellipse cx="24" cy="51" rx="11" ry="2" fill="#111"/>
+                </svg>
+                <div id="char-ph-label">YOUR CHARACTER</div>
+              </div>
+              <div class="bracket tl"></div>
+              <div class="bracket tr"></div>
+              <div class="bracket bl"></div>
+              <div class="bracket br"></div>
+            </div>
+            <div id="char-caption">SWAP <code>#char-img</code> SRC</div>
+          </div>
+
         </div>
       </div>
       <div class="bbar">
