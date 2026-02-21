@@ -637,7 +637,10 @@ class FinalBoss extends Entity {
       setTimeout(()=>{
         sessionStorage.setItem('ms_score', game.score);
         sessionStorage.setItem('ms_lives', game.lives);
-        window.location.href = 'stage2.html';
+        // Works inside iframe or standalone
+        const loc = window.location;
+        const base = loc.href.substring(0, loc.href.lastIndexOf('/') + 1);
+        window.location.replace(base + 'stage2.html');
       }, 2500);
     }
   }

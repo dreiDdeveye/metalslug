@@ -634,8 +634,12 @@ class FinalBoss extends Entity {
         this.cy + (Math.random()-0.5)*30
       ));
       game.floats.push(new FloatText(this.cx, this.y-30, 'BOSS DOWN! +5000', '#ffe94d'));
-      game.showNarrative('TARGET ELIMINATED. MISSION COMPLETE!', '#ffe94d');
-      setTimeout(()=>{ game.state='win'; showOverlay('MISSION\nCOMPLETE','SCORE: '+game.score+'\nPRESS ENTER TO PLAY AGAIN'); }, 2000);
+      game.showNarrative('TARGET ELIMINATED. STAGE 2 INCOMING...', '#ffe94d');
+      setTimeout(()=>{
+        sessionStorage.setItem('ms_score', game.score);
+        sessionStorage.setItem('ms_lives', game.lives);
+        window.location.replace('stage2.html');
+      }, 2500);
     }
   }
 

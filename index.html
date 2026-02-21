@@ -3,753 +3,953 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>METAL SLUG</title>
-<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<title>ALIEN WARS — Run & Gun on Solana</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-/* ─── RESET ────────────────────────────────────────────────── */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --or:#f5a623;--re:#e63c2f;--ye:#ffe94d;--bg:#060606;
-  --panel:#0d0d0d;--border:#1e1e1e;--muted:#444;--text:#ccc;
-}
-html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;
-  font-family:'Share Tech Mono',monospace;color:var(--text);cursor:crosshair}
 
-/* ─── CRT ──────────────────────────────────────────────────── */
-#crt{position:fixed;inset:0;z-index:900;pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.15) 2px,rgba(0,0,0,0.15) 4px);
-  animation:flicker 9s infinite}
-#crt::after{content:'';position:absolute;inset:0;
-  background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,0.75) 100%)}
-@keyframes flicker{0%,100%{opacity:1}91%{opacity:1}92%{opacity:.82}93%{opacity:1}95%{opacity:.9}96%{opacity:1}}
-#grain{position:fixed;inset:0;z-index:899;pointer-events:none;opacity:.035;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size:200px}
-
-/* ─── BG CANVAS ────────────────────────────────────────────── */
-#bgc{position:fixed;inset:0;z-index:0}
-
-/* ─── FLASH ────────────────────────────────────────────────── */
-#flash{position:fixed;inset:0;z-index:9999;background:#fff;opacity:0;pointer-events:none;transition:opacity .08s}
-#flash.on{opacity:1}
-
-/* ─── GAME FRAME ───────────────────────────────────────────── */
-#gf{position:fixed;inset:0;z-index:9998;display:none;border:none;width:100%;height:100%;background:#000}
-
-/* ─── FUNNEL SHELL ─────────────────────────────────────────── */
-#funnel{position:relative;z-index:10;width:100%;height:100%;overflow:hidden}
-
-/* ─── STEP (each "page") ───────────────────────────────────── */
-.step{
-  position:absolute;inset:0;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:24px 20px;
-  opacity:0;pointer-events:none;
-  transition:opacity .5s ease, transform .5s ease;
-  transform:translateX(60px);
-}
-.step.active{opacity:1;pointer-events:all;transform:translateX(0)}
-.step.exit-left{opacity:0;transform:translateX(-60px)}
-
-/* ─── PROGRESS BAR ─────────────────────────────────────────── */
-#progress{
-  position:fixed;top:0;left:0;right:0;z-index:20;
-  height:3px;background:var(--border);
-}
-#progress-fill{height:100%;background:linear-gradient(90deg,var(--or),var(--ye));
-  width:33%;transition:width .5s cubic-bezier(.4,0,.2,1)}
-
-/* ─── STEP COUNTER ─────────────────────────────────────────── */
-#step-counter{
-  position:fixed;top:14px;right:20px;z-index:20;
-  font-size:9px;letter-spacing:3px;color:var(--muted);
+:root {
+  --gold: #39ff14;
+  --gold-light: #7dff5e;
+  --red: #e63c2f;
+  --green: #39ff14;
+  --bg: #0a0a0a;
+  --bg-dark: #060606;
+  --surface: #111;
+  --border: #1e1e1e;
+  --text: #ccc;
+  --muted: #666;
+  --alien-glow: rgba(57, 255, 20, 0.35);
 }
 
-/* ─── CABINET CARD ─────────────────────────────────────────── */
-.card{
-  width:min(680px,96vw);
-  background:var(--panel);
-  border:1.5px solid var(--border);
-  border-radius:3px;
-  overflow:hidden;
-  box-shadow:0 0 60px rgba(245,166,35,.06),inset 0 0 40px rgba(0,0,0,.6);
+html {
+  scroll-behavior: smooth;
 }
 
-/* ─── MARQUEE BAR ──────────────────────────────────────────── */
-.mbar{
-  background:#080808;border-bottom:2px solid #181818;
-  padding:9px 18px;display:flex;align-items:center;justify-content:space-between;
-}
-.mdots{display:flex;gap:5px}
-.md{width:7px;height:7px;border-radius:50%;animation:bd 1.2s infinite}
-.md:nth-child(1){background:var(--re);animation-delay:0s}
-.md:nth-child(2){background:var(--or);animation-delay:.22s}
-.md:nth-child(3){background:var(--ye);animation-delay:.44s}
-@keyframes bd{0%,100%{opacity:1}50%{opacity:.15}}
-.mtxt{font-family:'Black Ops One',cursive;font-size:clamp(10px,2vw,13px);color:#333;letter-spacing:4px}
-
-/* ─── CARD BODY ────────────────────────────────────────────── */
-.cbody{
-  padding:32px 36px 28px;
-  display:flex;flex-direction:column;align-items:center;
-  position:relative;overflow:hidden;
-}
-.cbody::before{
-  content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
-  background:linear-gradient(to bottom,transparent,rgba(245,166,35,.025) 50%,transparent);
-  animation:scan 4s linear infinite;height:200%;
-}
-@keyframes scan{0%{transform:translateY(-50%)}100%{transform:translateY(0%)}}
-
-/* ─── STEP 2: FEATURES ─────────────────────────────────────── */
-.s-title{
-  position:relative;z-index:1;
-  font-family:'Black Ops One',cursive;
-  font-size:clamp(20px,4vw,30px);
-  color:var(--or);letter-spacing:4px;margin-bottom:6px;text-align:center;
-}
-.s-sub{
-  font-size:9px;letter-spacing:3px;color:#333;margin-bottom:26px;text-align:center;
-}
-#feat-grid{
-  position:relative;z-index:1;
-  display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:100%;max-width:480px;
-  margin-bottom:8px;
-}
-.feat{
-  display:flex;align-items:center;gap:14px;
-  padding:14px 16px;border:1px solid var(--border);
-  background:rgba(255,255,255,.02);border-radius:2px;
-  transition:border-color .3s,background .3s;
-}
-.feat:hover{border-color:var(--or);background:rgba(245,166,35,.05)}
-.feat-icon{
-  width:28px;height:28px;flex-shrink:0;
-  color:var(--or);opacity:.85;
-}
-.feat-text{display:flex;flex-direction:column;gap:3px}
-.feat-name{font-size:10px;letter-spacing:2px;color:#bbb;text-transform:uppercase}
-.feat-detail{font-size:8px;letter-spacing:1px;color:#333;line-height:1.4}
-
-/* ─── STEP 3: CONTROLS ─────────────────────────────────────── */
-#ctrl-grid{
-  position:relative;z-index:1;
-  display:grid;grid-template-columns:repeat(2,1fr);gap:10px;
-  width:100%;max-width:480px;margin-bottom:8px;
-}
-.ctrl{
-  display:flex;align-items:center;gap:12px;
-  padding:12px 14px;border:1px solid var(--border);
-  background:rgba(255,255,255,.02);border-radius:2px;
-  transition:border-color .3s;
-}
-.ctrl:hover{border-color:#333}
-.ctrl-key-badge{
-  background:#111;border:1px solid #2a2a2a;border-radius:3px;
-  padding:4px 8px;font-size:10px;color:var(--or);letter-spacing:1px;
-  white-space:nowrap;flex-shrink:0;min-width:52px;text-align:center;
-}
-.ctrl-desc{font-size:9px;color:#3a3a3a;letter-spacing:1px;text-transform:uppercase}
-
-/* ─── NAV BUTTONS ──────────────────────────────────────────── */
-.nav-row{
-  position:relative;z-index:1;
-  display:flex;gap:12px;margin-top:22px;align-items:center;
-}
-.btn-back{
-  font-family:'Share Tech Mono',monospace;
-  font-size:11px;letter-spacing:3px;color:#333;
-  background:none;border:1px solid #1e1e1e;
-  padding:11px 22px;cursor:pointer;border-radius:2px;
-  transition:color .2s,border-color .2s;text-transform:uppercase;
-}
-.btn-back:hover{color:#666;border-color:#333}
-.btn-next{
-  font-family:'Black Ops One',cursive;
-  font-size:clamp(13px,2.5vw,16px);letter-spacing:4px;
-  color:#000;background:linear-gradient(180deg,#ffe94d 0%,#f5a623 100%);
-  border:none;outline:none;padding:13px 36px;cursor:pointer;
-  clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);
-  transition:transform .1s,filter .2s;text-transform:uppercase;
-  animation:pulse 2s ease-in-out infinite;
-}
-.btn-next:hover{transform:scale(1.04);filter:brightness(1.15)}
-.btn-next:active{transform:scale(.97)}
-@keyframes pulse{
-  0%,100%{box-shadow:0 0 18px rgba(245,166,35,.35)}
-  50%{box-shadow:0 0 32px rgba(245,166,35,.75),0 0 70px rgba(245,166,35,.2)}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Rajdhani', sans-serif;
+  overflow-x: hidden;
 }
 
-/* ─── LAUNCH BUTTON (step 3) ────────────────────────────────── */
-#launch-btn{
-  font-family:'Black Ops One',cursive;
-  font-size:clamp(15px,3vw,20px);letter-spacing:5px;
-  color:#000;background:linear-gradient(180deg,#ffe94d 0%,#f5a623 100%);
-  border:none;outline:none;padding:16px 48px;cursor:pointer;
-  clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);
-  transition:transform .1s,filter .2s;text-transform:uppercase;
-  animation:pulse 1.6s ease-in-out infinite;
-  position:relative;z-index:1;
-}
-#launch-btn:hover{transform:scale(1.05);filter:brightness(1.2)}
-#launch-btn:active{transform:scale(.96)}
-#launch-hint{
-  position:relative;z-index:1;
-  margin-top:10px;font-size:9px;letter-spacing:3px;color:#2a2a2a;
-  animation:blink 1.5s step-end infinite;
-}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-
-/* ─── BOTTOM BAR ───────────────────────────────────────────── */
-.bbar{
-  background:#080808;border-top:2px solid #151515;
-  padding:9px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;
-}
-#credit-c{font-size:9px;letter-spacing:2px;color:#2a2a2a;animation:blink 2.2s step-end infinite}
-#x-link{
-  display:flex;align-items:center;gap:7px;text-decoration:none;
-  padding:5px 13px;border:1px solid #1a1a1a;border-radius:2px;
-  color:#3a3a3a;font-size:9px;letter-spacing:2px;
-  transition:border-color .25s,color .25s,background .25s;
-}
-#x-link:hover{border-color:#fff;color:#fff;background:rgba(255,255,255,.04)}
-#x-link svg{width:12px;height:12px;fill:currentColor;flex-shrink:0}
-#ver{font-size:8px;letter-spacing:2px;color:#1c1c1c}
-
-/* ─── CASINGS ───────────────────────────────────────────────── */
-.cas{
-  position:fixed;z-index:897;pointer-events:none;
-  width:5px;height:13px;
-  background:linear-gradient(180deg,#ffe94d,#b85a10);
-  border-radius:2px 2px 1px 1px;
-  animation:cas-fall linear forwards;
-}
-@keyframes cas-fall{
-  0%{opacity:1;transform:rotate(var(--r0)) translateY(0)}
-  100%{opacity:0;transform:rotate(var(--r1)) translateY(var(--fd))}
+/* ═══════════ NAVBAR ═══════════ */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  height: 64px;
+  background: rgba(6,6,6,0.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.3s;
 }
 
-/* ─── SIDE LAMPS ────────────────────────────────────────────── */
-.lamp{position:absolute;top:50%;transform:translateY(-50%);z-index:5;display:flex;flex-direction:column;gap:6px;align-items:center}
-.lamp-l{left:-14px}.lamp-r{right:-14px}
-.lb{width:7px;height:7px;border-radius:50%;animation:lc 2.4s infinite}
-.lb:nth-child(1){animation-delay:0s}.lb:nth-child(2){animation-delay:.3s}
-.lb:nth-child(3){animation-delay:.6s}.lb:nth-child(4){animation-delay:.9s}
-.lb:nth-child(5){animation-delay:1.2s}
-@keyframes lc{0%,100%{background:#111;box-shadow:none}40%,60%{background:var(--or);box-shadow:0 0 7px var(--or)}}
-
-/* ─── CURSOR TRAIL ──────────────────────────────────────────── */
-.trail{position:fixed;z-index:896;pointer-events:none;width:4px;height:4px;border-radius:50%;
-  background:rgba(245,166,35,.7);transition:opacity .4s,transform .4s}
-
-/* ─── HERO SPLIT LAYOUT ─────────────────────────────────────── */
-#hero-split{
-  position:relative;z-index:1;
-  display:flex;align-items:center;justify-content:space-between;
-  gap:24px;width:100%;
+.nav-logo {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px;
+  letter-spacing: 4px;
+  color: #fff;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-#hero-left{
-  flex:1;display:flex;flex-direction:column;align-items:flex-start;
-}
-#logo-eyebrow{
-  font-size:clamp(8px,1.3vw,10px);letter-spacing:9px;color:#2e2e2e;
-  text-transform:uppercase;margin-bottom:6px;
-  animation:fi .8s both;
-}
-#logo-main{
-  font-family:'Black Ops One',cursive;
-  font-size:clamp(44px,9vw,80px);
-  line-height:.88;letter-spacing:-2px;
-  background:linear-gradient(180deg,#ffe94d 0%,#f5a623 48%,#b85a10 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-  animation:logo-glow 3s ease-in-out infinite alternate, fi .8s both;
-}
-@keyframes logo-glow{
-  from{filter:drop-shadow(0 0 10px rgba(245,166,35,.35))}
-  to{filter:drop-shadow(0 0 28px rgba(245,166,35,.85)) drop-shadow(0 0 70px rgba(245,166,35,.25))}
-}
-#logo-sub{
-  font-family:'Black Ops One',cursive;
-  font-size:clamp(11px,2vw,16px);
-  color:var(--re);letter-spacing:7px;margin-top:4px;
-  animation:fi .8s .15s both;
-}
-#hero-desc{
-  margin-top:14px;font-size:clamp(8px,1.4vw,10px);color:#2e2e2e;
-  letter-spacing:2px;line-height:2;
-  animation:fi .8s .3s both;
+.nav-logo span {
+  background: linear-gradient(180deg, #7dff5e 0%, #39ff14 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-/* ─── CHARACTER SLOT ────────────────────────────────────────── */
-#char-slot{
-  flex-shrink:0;
-  width:clamp(140px,22vw,200px);
-  display:flex;flex-direction:column;align-items:center;gap:8px;
-  animation:fi .8s .25s both;
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
 }
-#char-inner{
-  position:relative;
-  width:100%;
-  aspect-ratio:1/1.6;
-  background:linear-gradient(160deg,#0e0e0e 0%,#070707 100%);
-  border:1px solid #1e1e1e;
-  border-radius:2px;
-  overflow:hidden;
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:inset 0 0 30px rgba(0,0,0,.8), 0 0 20px rgba(245,166,35,.04);
+.nav-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: color 0.25s;
 }
-/* subtle scanline inside slot */
-#char-inner::after{
-  content:'';position:absolute;inset:0;pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.1) 3px,rgba(0,0,0,.1) 4px);
-}
-#char-placeholder{
-  display:flex;flex-direction:column;align-items:center;gap:10px;
-  padding:12px;
-}
-#char-ph-icon{
-  width:clamp(56px,8vw,80px);
-  height:auto;
-  opacity:.18;
-  animation:char-idle 3s ease-in-out infinite;
-}
-@keyframes char-idle{
-  0%,100%{transform:translateY(0)}
-  50%{transform:translateY(-5px)}
-}
-#char-ph-label{
-  font-size:8px;letter-spacing:3px;color:#252525;
-  text-align:center;text-transform:uppercase;line-height:1.8;
+.nav-links a:hover {
+  color: #fff;
 }
 
-/* corner brackets */
-.bracket{
-  position:absolute;width:14px;height:14px;
-  border-color:var(--or);border-style:solid;opacity:.35;
-  animation:bracket-pulse 2.5s ease-in-out infinite alternate;
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
-.bracket.tl{top:6px;left:6px;border-width:2px 0 0 2px}
-.bracket.tr{top:6px;right:6px;border-width:2px 2px 0 0}
-.bracket.bl{bottom:6px;left:6px;border-width:0 0 2px 2px}
-.bracket.br{bottom:6px;right:6px;border-width:0 2px 2px 0}
-@keyframes bracket-pulse{from{opacity:.2}to{opacity:.6}}
+.nav-social {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: #888;
+  text-decoration: none;
+  transition: background 0.25s, color 0.25s;
+}
+.nav-social:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+.nav-social svg { width: 18px; height: 18px; }
 
-#char-caption{
-  font-size:7px;letter-spacing:2px;color:#222;text-align:center;
-  text-transform:uppercase;
+.nav-cta {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #000;
+  background: linear-gradient(180deg, #7dff5e, #39ff14);
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.15s, filter 0.25s, box-shadow 0.25s;
+  box-shadow: 0 0 16px rgba(57,255,20,0.25);
 }
-#char-caption code{
-  color:#2e2e2e;background:rgba(255,255,255,.04);
-  padding:1px 4px;border-radius:2px;font-family:'Share Tech Mono',monospace;
+.nav-cta:hover { transform: scale(1.04); filter: brightness(1.15); box-shadow: 0 0 28px rgba(57,255,20,0.45); }
+
+/* ═══════════ HERO SECTION ═══════════ */
+.hero {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 64px 0 0 0;
+  margin: 0;
 }
 
-/* ─── UTIL ──────────────────────────────────────────────────── */
-@keyframes fi{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.divline{
-  position:relative;z-index:1;
-  width:100%;display:flex;align-items:center;gap:10px;margin:16px 0 12px;
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background: url('your-background.png') center center / 100% 100% no-repeat;
+  filter: brightness(0.35) saturate(1.2) hue-rotate(10deg);
 }
-.divline::before,.divline::after{content:'';flex:1;height:1px;
-  background:linear-gradient(to right,transparent,#222,transparent)}
-.divline span{color:#2a2a2a;font-size:9px;letter-spacing:4px;white-space:nowrap}
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, var(--bg) 0%, rgba(10,10,10,0.3) 40%, rgba(10,10,10,0.6) 100%);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px 40px;
+}
+
+.hero-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(70px, 12vw, 160px);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: 12px;
+  color: #fff;
+  text-shadow: 
+    0 0 20px rgba(57,255,20,0.5),
+    0 0 60px rgba(57,255,20,0.25),
+    0 0 120px rgba(57,255,20,0.15),
+    0 4px 60px rgba(57,255,20,0.2);
+  animation: hero-in 1s ease both, alien-pulse 4s ease-in-out infinite;
+}
+@keyframes alien-pulse {
+  0%, 100% { text-shadow: 0 0 20px rgba(57,255,20,0.5), 0 0 60px rgba(57,255,20,0.25), 0 0 120px rgba(57,255,20,0.15); }
+  50% { text-shadow: 0 0 30px rgba(57,255,20,0.7), 0 0 80px rgba(57,255,20,0.4), 0 0 160px rgba(57,255,20,0.25); }
+}
+@keyframes hero-in {
+  from { opacity: 0; transform: translateY(30px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.hero-subtitle {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(24px, 4vw, 48px);
+  color: var(--gold);
+  letter-spacing: 6px;
+  margin-top: 8px;
+  animation: hero-in 1s 0.15s ease both;
+}
+
+.hero-desc {
+  font-size: 16px;
+  color: rgba(255,255,255,0.5);
+  max-width: 600px;
+  margin-top: 16px;
+  line-height: 1.6;
+  letter-spacing: 0.5px;
+  animation: hero-in 1s 0.3s ease both;
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 16px;
+  margin-top: 32px;
+  animation: hero-in 1s 0.45s ease both;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: #000;
+  background: linear-gradient(180deg, #7dff5e, #39ff14);
+  padding: 14px 36px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s, filter 0.25s, box-shadow 0.25s;
+  box-shadow: 0 0 30px rgba(57,255,20,0.25);
+}
+.btn-primary:hover {
+  transform: scale(1.04);
+  filter: brightness(1.15);
+  box-shadow: 0 0 50px rgba(57,255,20,0.45);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: #fff;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  padding: 14px 36px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.25s, border-color 0.25s;
+}
+.btn-secondary:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.25);
+}
+
+/* Character sprites in hero */
+.hero-char-left {
+  position: absolute;
+  bottom: 0; left: 3%;
+  z-index: 3;
+  height: clamp(200px, 40vh, 450px);
+  animation: char-float 3s ease-in-out infinite, hero-in 1s 0.3s ease both;
+  filter: drop-shadow(0 0 40px rgba(0,0,0,0.8));
+  pointer-events: none;
+}
+.hero-char-right {
+  position: absolute;
+  bottom: 0; right: 2%;
+  z-index: 3;
+  height: clamp(180px, 35vh, 400px);
+  animation: char-float 3.5s 0.5s ease-in-out infinite, hero-in 1s 0.4s ease both;
+  filter: drop-shadow(0 0 40px rgba(0,0,0,0.8));
+  pointer-events: none;
+  transform: scaleX(-1);
+}
+@keyframes char-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.hero-char-right {
+  animation: char-float-r 3.5s 0.5s ease-in-out infinite, hero-in 1s 0.4s ease both;
+}
+@keyframes char-float-r {
+  0%, 100% { transform: scaleX(-1) translateY(0); }
+  50% { transform: scaleX(-1) translateY(-8px); }
+}
+
+/* CA Banner below hero */
+.ca-banner {
+  position: relative;
+  z-index: 4;
+  width: 100%;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(57,255,20,0.15);
+  border-bottom: 1px solid rgba(57,255,20,0.15);
+  padding: 14px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.ca-label {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--gold);
+  text-transform: uppercase;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ca-address {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 420px;
+  user-select: all;
+}
+.ca-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.25s;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ca-copy-btn:hover { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.2); }
+.ca-copy-btn.copied { color: var(--green); border-color: rgba(57,255,20,0.3); background: rgba(57,255,20,0.06); }
+.ca-copy-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ═══════════ SECTION COMMON ═══════════ */
+section {
+  padding: 100px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-eyebrow {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 5px;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(40px, 6vw, 72px);
+  color: #fff;
+  letter-spacing: 3px;
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.section-title em {
+  font-style: italic;
+  color: var(--gold);
+}
+
+.section-desc {
+  font-size: 16px;
+  color: rgba(255,255,255,0.45);
+  max-width: 560px;
+  line-height: 1.6;
+}
+
+/* ═══════════ FEATURE ROWS ═══════════ */
+.feature-row {
+  display: flex;
+  align-items: center;
+  gap: 60px;
+  padding: 80px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.feature-row.reverse { flex-direction: row-reverse; }
+
+.feature-media {
+  flex: 1;
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 16/10;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.feature-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.feature-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.05);
+  pointer-events: none;
+}
+
+.feature-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.feature-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--gold);
+  text-transform: uppercase;
+  background: rgba(57,255,20,0.08);
+  border: 1px solid rgba(57,255,20,0.15);
+  padding: 6px 14px;
+  border-radius: 4px;
+  width: fit-content;
+}
+.feature-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 8px var(--gold);
+}
+
+.feature-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(32px, 4vw, 52px);
+  color: #fff;
+  letter-spacing: 2px;
+  line-height: 1;
+  font-style: italic;
+}
+
+.feature-desc {
+  font-size: 15px;
+  color: rgba(255,255,255,0.45);
+  line-height: 1.7;
+  max-width: 480px;
+}
+
+.feature-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: #000;
+  background: linear-gradient(180deg, #7dff5e, #39ff14);
+  padding: 12px 28px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  width: fit-content;
+  transition: transform 0.15s, filter 0.25s;
+}
+.feature-cta:hover { transform: scale(1.04); filter: brightness(1.15); }
+
+/* ═══════════ CHARACTER SHOWCASE ═══════════ */
+.characters-section {
+  padding: 100px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.char-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.char-card {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+  overflow: hidden;
+}
+.char-card:hover {
+  border-color: rgba(57,255,20,0.3);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(57,255,20,0.08);
+}
+.char-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%; transform: translateX(-50%);
+  width: 120px; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.char-card:hover::before { opacity: 1; }
+
+.char-card img {
+  height: 160px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 20px rgba(0,0,0,0.6));
+  transition: transform 0.3s;
+}
+.char-card:hover img { transform: scale(1.05); }
+
+.char-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px;
+  color: #fff;
+  letter-spacing: 2px;
+}
+.char-role {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* ═══════════ TOKENOMICS ═══════════ */
+.tokenomics-section {
+  padding: 100px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.token-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-top: 48px;
+}
+
+.token-card {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 24px;
+  text-align: center;
+  transition: border-color 0.3s;
+}
+.token-card:hover { border-color: rgba(57,255,20,0.25); }
+
+.token-val {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 36px;
+  color: var(--gold);
+  letter-spacing: 2px;
+}
+.token-key {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+/* ═══════════ CTA SECTION ═══════════ */
+.cta-section {
+  position: relative;
+  padding: 120px 40px;
+  text-align: center;
+  overflow: hidden;
+}
+.cta-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(57,255,20,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ═══════════ FOOTER ═══════════ */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.footer-logo {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px;
+  letter-spacing: 3px;
+  color: rgba(255,255,255,0.3);
+}
+.footer-links {
+  display: flex;
+  gap: 24px;
+}
+.footer-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 1px;
+  transition: color 0.25s;
+}
+.footer-links a:hover { color: #fff; }
+.footer-copy {
+  font-size: 12px;
+  color: rgba(255,255,255,0.2);
+  letter-spacing: 1px;
+}
+
+/* ═══════════ TOAST ═══════════ */
+#toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  z-index: 9990;
+  pointer-events: none;
+  background: rgba(10,26,10,0.95);
+  border: 1px solid rgba(57,255,20,0.25);
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--green);
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  backdrop-filter: blur(8px);
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ═══════════ SCROLL ANIMATIONS ═══════════ */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ═══════════ GAME IFRAME ═══════════ */
+#game-frame {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  border: none;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+/* ═══════════ RESPONSIVE ═══════════ */
+@media (max-width: 900px) {
+  nav { padding: 0 20px; }
+  .nav-links { display: none; }
+  .feature-row, .feature-row.reverse { flex-direction: column; gap: 32px; }
+  .char-grid { grid-template-columns: repeat(2, 1fr); }
+  .token-grid { grid-template-columns: repeat(2, 1fr); }
+  .hero-char-left, .hero-char-right { display: none; }
+  section, .feature-row, .characters-section, .tokenomics-section { padding-left: 20px; padding-right: 20px; }
+  .ca-banner { flex-wrap: wrap; padding: 12px 20px; }
+}
+@media (max-width: 500px) {
+  .char-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .token-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .hero-buttons { flex-direction: column; width: 100%; }
+  .btn-primary, .btn-secondary { width: 100%; justify-content: center; }
+}
 </style>
 </head>
 <body>
 
-<div id="crt"></div>
-<div id="grain"></div>
-<div id="flash"></div>
-<div id="progress"><div id="progress-fill"></div></div>
-<span id="step-counter">01 / 03</span>
-<canvas id="bgc"></canvas>
-<iframe id="gf" src="" title="Metal Slug"></iframe>
+<!-- ═══════════ TOAST ═══════════ -->
+<div id="toast">ADDRESS COPIED ✓</div>
 
-<!-- ══════════════════════════════════════════════════════════ -->
-<!-- FUNNEL                                                     -->
-<!-- ══════════════════════════════════════════════════════════ -->
-<div id="funnel">
+<!-- ═══════════ GAME IFRAME ═══════════ -->
+<iframe id="game-frame" src="" title="Alien Wars"></iframe>
 
-  <!-- ── STEP 1: HERO ──────────────────────────────────────── -->
-  <div class="step active" id="s1">
-    <div class="card">
-      <div class="lamp lamp-l"><div class="lb"></div><div class="lb"></div><div class="lb"></div><div class="lb"></div><div class="lb"></div></div>
-      <div class="lamp lamp-r"><div class="lb"></div><div class="lb"></div><div class="lb"></div><div class="lb"></div><div class="lb"></div></div>
-      <div class="mbar">
-        <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
-        <span class="mtxt">SNK CORPORATION · RUN AND GUN</span>
-        <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
-      </div>
-      <div class="cbody" style="padding:28px 32px 24px">
-        <div id="hero-split">
+<!-- ═══════════ NAVBAR ═══════════ -->
+<nav>
+  <a href="#" class="nav-logo"><span>ALIEN WARS</span></a>
 
-          <!-- LEFT: text -->
-          <div id="hero-left">
-            <div id="logo-eyebrow">Operation: STEEL WIND</div>
-            <div id="logo-main">METAL<br>SLUG</div>
-            <div id="logo-sub">RUN &amp; GUN</div>
-            <div id="hero-desc">
-              SIDE-SCROLLING ARCADE ACTION<br>
-              PIXEL SOLDIERS · TANK WARFARE<br>
-              SURVIVE THE ASSAULT
-            </div>
-            <div class="nav-row" style="margin-top:22px">
-              <button class="btn-next" onclick="goStep(2)">BRIEFING &nbsp;›</button>
-            </div>
-          </div>
-
-          <!-- RIGHT: character placeholder -->
-          <div id="char-slot">
-            <div id="char-inner">
-              <img id="char-img" src="your-character.png" alt="character" style="display:block;width:100%;height:100%;object-fit:contain;object-position:bottom center;image-rendering:pixelated"/>
-              <div id="char-placeholder" style="display:none">
-                <svg id="char-ph-icon" viewBox="0 0 48 62" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="16" y="1" width="16" height="5" rx="1" fill="#252525"/>
-                  <rect x="17" y="5" width="14" height="11" rx="2" fill="#252525"/>
-                  <rect x="20" y="9" width="3" height="2" rx=".5" fill="#161616"/>
-                  <rect x="25" y="9" width="3" height="2" rx=".5" fill="#161616"/>
-                  <rect x="15" y="16" width="18" height="14" rx="1" fill="#1e1e1e"/>
-                  <rect x="15" y="27" width="18" height="3" fill="#161616"/>
-                  <rect x="8" y="17" width="7" height="10" rx="1" fill="#1e1e1e"/>
-                  <rect x="33" y="17" width="7" height="10" rx="1" fill="#1e1e1e"/>
-                  <rect x="37" y="21" width="9" height="3" rx="1" fill="#141414"/>
-                  <rect x="16" y="30" width="7" height="16" rx="1" fill="#1e1e1e"/>
-                  <rect x="25" y="30" width="7" height="16" rx="1" fill="#1e1e1e"/>
-                  <rect x="14" y="44" width="10" height="5" rx="1" fill="#161616"/>
-                  <rect x="24" y="44" width="10" height="5" rx="1" fill="#161616"/>
-                  <ellipse cx="24" cy="51" rx="11" ry="2" fill="#111"/>
-                </svg>
-                <div id="char-ph-label">YOUR CHARACTER</div>
-              </div>
-              <div class="bracket tl"></div>
-              <div class="bracket tr"></div>
-              <div class="bracket bl"></div>
-              <div class="bracket br"></div>
-            </div>
-            <div id="char-caption">SWAP <code>#char-img</code> SRC</div>
-          </div>
-
-        </div>
-      </div>
-      <div class="bbar">
-        <span id="credit-c">CREDIT(S): 03</span>
-        <a id="x-link" href="https://x.com/yourusername" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-          @yourusername
-        </a>
-        <span id="ver">VER 1.0.0</span>
-      </div>
-    </div>
+  <div class="nav-links">
+    <a href="#run-gun">Game</a>
+    <a href="#play-earn">Earn</a>
+    <a href="#characters">Characters</a>
+    <a href="#tokenomics">Tokenomics</a>
   </div>
 
-  <!-- ── STEP 2: FEATURES ──────────────────────────────────── -->
-  <div class="step" id="s2">
-    <div class="card">
-      <div class="mbar">
-        <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
-        <span class="mtxt">MISSION BRIEFING</span>
-        <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
-      </div>
-      <div class="cbody">
-        <div class="s-title">ARSENAL</div>
-        <div class="s-sub">WHAT AWAITS YOU ON THE BATTLEFIELD</div>
+  <div class="nav-right">
+    <a href="https://x.com/yourusername" target="_blank" rel="noopener" class="nav-social" title="X / Twitter">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+    </a>
+    <a href="https://t.me/yourtelegram" target="_blank" rel="noopener" class="nav-social" title="Telegram">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5L2 12.5l7 1M21 5l-5 15-4.5-5L21 5zM9 13.5L14 10"/></svg>
+    </a>
+    <a href="https://dexscreener.com" target="_blank" rel="noopener" class="nav-social" title="Chart">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    </a>
+    <button class="nav-cta" onclick="playGame()">Play Now</button>
+  </div>
+</nav>
 
-        <div id="feat-grid">
+<!-- ═══════════ HERO ═══════════ -->
+<section class="hero" id="hero">
+  <div class="hero-bg"></div>
 
-          <!-- Pixel Soldiers -->
-          <div class="feat">
-            <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="5" r="2.5"/>
-              <path d="M9 9h6l1 5H8L9 9z"/>
-              <path d="M8 14l-2 6h12l-2-6"/>
-              <path d="M9 9L7 7m8 2l2-2"/>
-            </svg>
-            <div class="feat-text">
-              <div class="feat-name">Pixel Soldiers</div>
-              <div class="feat-detail">Hand-crafted sprites &amp; smooth animation</div>
-            </div>
-          </div>
+  <img src="your-character.png" alt="Hero Character" class="hero-char-left" />
+  <img src="your-enemy3.png" alt="Enemy Character" class="hero-char-right" />
 
-          <!-- Grenades -->
-          <div class="feat">
-            <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <ellipse cx="12" cy="15" rx="5" ry="5.5"/>
-              <path d="M12 9.5V7"/>
-              <path d="M10 7h4"/>
-              <path d="M14 5l1-1.5"/>
-              <path d="M7 18l-2 2m12-2l2 2"/>
-            </svg>
-            <div class="feat-text">
-              <div class="feat-name">Grenades</div>
-              <div class="feat-detail">Arc physics &amp; blast radius damage</div>
-            </div>
-          </div>
-
-          <!-- Metal Slug Tank -->
-          <div class="feat">
-            <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="10" width="18" height="8" rx="2"/>
-              <path d="M4 18v2m4-2v2m4-2v2m4-2v2"/>
-              <rect x="6" y="7" width="10" height="4" rx="1"/>
-              <path d="M16 9h5"/>
-              <circle cx="5" cy="15" r="1.5"/><circle cx="10" cy="15" r="1.5"/><circle cx="15" cy="15" r="1.5"/>
-            </svg>
-            <div class="feat-text">
-              <div class="feat-name">Metal Slug Tank</div>
-              <div class="feat-detail">Board, drive &amp; unleash heavy fire</div>
-            </div>
-          </div>
-
-          <!-- Full Level -->
-          <div class="feat">
-            <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="3" width="20" height="14" rx="2"/>
-              <path d="M8 21h8m-4-4v4"/>
-              <path d="M6 10l3 3 3-3 3 3 3-3"/>
-            </svg>
-            <div class="feat-text">
-              <div class="feat-name">Full Level</div>
-              <div class="feat-detail">5000px scrolling map with obstacles</div>
-            </div>
-          </div>
-
-          <!-- Side-Scrolling Action -->
-          <div class="feat">
-            <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14"/>
-              <path d="M15 8l4 4-4 4"/>
-              <circle cx="5" cy="12" r="2"/>
-            </svg>
-            <div class="feat-text">
-              <div class="feat-name">Arcade Action</div>
-              <div class="feat-detail">Classic run &amp; gun side-scroll</div>
-            </div>
-          </div>
-
-          <!-- Pickups -->
-          <div class="feat">
-            <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 4v16m-4-8h8"/>
-              <circle cx="12" cy="12" r="9"/>
-            </svg>
-            <div class="feat-text">
-              <div class="feat-name">Health Pickups</div>
-              <div class="feat-detail">Restore HP scattered across the map</div>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="nav-row">
-          <button class="btn-back" onclick="goStep(1)">‹ BACK</button>
-          <button class="btn-next" onclick="goStep(3)">CONTROLS &nbsp;›</button>
-        </div>
-      </div>
-      <div class="bbar">
-        <span style="font-size:9px;letter-spacing:2px;color:#1c1c1c">STEP 2 OF 3</span>
-        <a id="x-link2" href="https://x.com/yourusername" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:7px;text-decoration:none;padding:5px 13px;border:1px solid #1a1a1a;border-radius:2px;color:#3a3a3a;font-size:9px;letter-spacing:2px;transition:border-color .25s,color .25s">
-          <svg style="width:12px;height:12px;fill:currentColor;flex-shrink:0" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-          @yourusername
-        </a>
-        <span style="font-size:8px;letter-spacing:2px;color:#1c1c1c">VER 1.0.0</span>
-      </div>
+  <div class="hero-content">
+    <div class="hero-title">ALIEN<br>WARS</div>
+    <div class="hero-subtitle">THE FIRST RUN & GUN ON SOLANA</div>
+    <p class="hero-desc">
+      Drop into the trenches, blast through enemy lines, and fight your way to victory
+      in this retro arcade-powered blockchain experience.
+    </p>
+    <div class="hero-buttons">
+      <button class="btn-primary" onclick="playGame()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Play Now
+      </button>
+      <a href="#run-gun" class="btn-secondary">Learn More</a>
     </div>
   </div>
+</section>
 
-  <!-- ── STEP 3: CONTROLS + LAUNCH ─────────────────────────── -->
-  <div class="step" id="s3">
-    <div class="card">
-      <div class="mbar">
-        <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
-        <span class="mtxt">CONTROL SCHEME</span>
-        <div class="mdots"><div class="md"></div><div class="md"></div><div class="md"></div></div>
-      </div>
-      <div class="cbody">
-        <div class="s-title">CONTROLS</div>
-        <div class="s-sub">MASTER THESE — THEN DEPLOY</div>
+<!-- ═══════════ CA BANNER ═══════════ -->
+<div class="ca-banner">
+  <span class="ca-label">CA:</span>
+  <span class="ca-address" id="ca-display">XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX</span>
+  <button class="ca-copy-btn" id="ca-copy" onclick="copyCA()">
+    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    Copy
+  </button>
+</div>
 
-        <div id="ctrl-grid">
+<!-- ═══════════ FEATURE: RUN & GUN ═══════════ -->
+<div class="feature-row reveal" id="run-gun">
+  <div class="feature-media">
+    <img src="stage2-bg.jpg" alt="Run & Gun Gameplay" />
+  </div>
+  <div class="feature-info">
+    <div class="feature-badge">Core Gameplay</div>
+    <div class="feature-title">RUN & GUN</div>
+    <p class="feature-desc">
+      Classic side-scrolling arcade action meets blockchain. Blast through enemy territory,
+      commandeer the iconic Alien Wars tank, and unleash heavy firepower across
+      multiple stages of intense combat.
+    </p>
+    <button class="feature-cta" onclick="playGame()">Play Now</button>
+  </div>
+</div>
 
-          <div class="ctrl">
-            <span class="ctrl-key-badge">← →</span>
-            <span class="ctrl-desc">Move left / right</span>
-          </div>
-          <div class="ctrl">
-            <span class="ctrl-key-badge">↑ / W</span>
-            <span class="ctrl-desc">Jump</span>
-          </div>
-          <div class="ctrl">
-            <span class="ctrl-key-badge">Z / SPC</span>
-            <span class="ctrl-desc">Shoot</span>
-          </div>
-          <div class="ctrl">
-            <span class="ctrl-key-badge">X</span>
-            <span class="ctrl-desc">Throw grenade</span>
-          </div>
-          <div class="ctrl">
-            <span class="ctrl-key-badge">↓</span>
-            <span class="ctrl-desc">Duck / crouch</span>
-          </div>
-          <div class="ctrl">
-            <span class="ctrl-key-badge">↑ TANK</span>
-            <span class="ctrl-desc">Board tank</span>
-          </div>
+<!-- ═══════════ FEATURE: PLAY TO EARN ═══════════ -->
+<div class="feature-row reverse reveal" id="play-earn">
+  <div class="feature-media">
+    <img src="stage3-bg.jpg" alt="Play to Earn" />
+  </div>
+  <div class="feature-info">
+    <div class="feature-badge">Powered by Solana</div>
+    <div class="feature-title">PLAY TO EARN</div>
+    <p class="feature-desc">
+      Powered by Solana blockchain. Complete missions, defeat bosses,
+      and earn $ALIEN tokens. Real stakes, real rewards. Cash out your
+      battlefield earnings anytime.
+    </p>
+    <a href="https://dexscreener.com" target="_blank" rel="noopener" class="feature-cta">View Chart</a>
+  </div>
+</div>
 
-        </div>
+<!-- ═══════════ CHARACTERS ═══════════ -->
+<div class="characters-section reveal" id="characters">
+  <div class="section-eyebrow">Meet the Squad</div>
+  <div class="section-title">Choose Your <em>Fighter</em></div>
+  <p class="section-desc" style="margin:0 auto;">
+    Each soldier brings unique abilities to the battlefield. Pick your hero and dominate the trenches.
+  </p>
 
-        <div class="divline"><span>▸ DEPLOY WHEN READY ◂</span></div>
-
-        <button id="launch-btn" onclick="launchGame()">
-          ▶ ENTER THE GAME
-        </button>
-        <div id="launch-hint">PRESS ENTER OR CLICK TO DEPLOY</div>
-
-        <div class="nav-row" style="margin-top:14px">
-          <button class="btn-back" onclick="goStep(2)">‹ BACK</button>
-        </div>
-      </div>
-      <div class="bbar">
-        <span style="font-size:9px;letter-spacing:2px;color:#1c1c1c">STEP 3 OF 3</span>
-        <a href="https://x.com/yourusername" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:7px;text-decoration:none;padding:5px 13px;border:1px solid #1a1a1a;border-radius:2px;color:#3a3a3a;font-size:9px;letter-spacing:2px;">
-          <svg style="width:12px;height:12px;fill:currentColor;flex-shrink:0" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-          @yourusername
-        </a>
-        <span style="font-size:8px;letter-spacing:2px;color:#1c1c1c">VER 1.0.0</span>
-      </div>
+  <div class="char-grid">
+    <div class="char-card">
+      <img src="your-character.png" alt="Marco" />
+      <div class="char-name">MARCO</div>
+      <div class="char-role">Squad Leader</div>
+    </div>
+    <div class="char-card">
+      <img src="your-enemy.png" alt="Boxhead" />
+      <div class="char-name">BOXHEAD</div>
+      <div class="char-role">Heavy Gunner</div>
+    </div>
+    <div class="char-card">
+      <img src="your-enemy2.png" alt="Tarma" />
+      <div class="char-name">TARMA</div>
+      <div class="char-role">Recon Specialist</div>
+    </div>
+    <div class="char-card">
+      <img src="your-enemy3.png" alt="Fio" />
+      <div class="char-name">STRIKER</div>
+      <div class="char-role">Demolitions</div>
     </div>
   </div>
+</div>
 
-</div><!-- /funnel -->
+<!-- ═══════════ TOKENOMICS ═══════════ -->
+<div class="tokenomics-section reveal" id="tokenomics">
+  <div class="section-eyebrow">$ALIEN Token</div>
+  <div class="section-title">Token <em>Data</em></div>
+  <p class="section-desc">Fair launch. No presale. No VC. Just pure run & gun tokenomics.</p>
+
+  <div class="token-grid">
+    <div class="token-card">
+      <div class="token-val">1B</div>
+      <div class="token-key">Total Supply</div>
+    </div>
+    <div class="token-card">
+      <div class="token-val">0%</div>
+      <div class="token-key">Buy Tax</div>
+    </div>
+    <div class="token-card">
+      <div class="token-val">0%</div>
+      <div class="token-key">Sell Tax</div>
+    </div>
+    <div class="token-card">
+      <div class="token-val">RENOUNCED</div>
+      <div class="token-key">Ownership</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ CTA SECTION ═══════════ -->
+<div class="cta-section reveal">
+  <div class="section-eyebrow" style="text-align:center">Ready to Deploy?</div>
+  <div class="section-title" style="text-align:center;margin:0 auto">Enter The <em>Battlefield</em></div>
+  <p class="section-desc" style="text-align:center;margin:16px auto 32px">
+    Join the squad. Play the game. Earn the rewards.
+  </p>
+  <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap">
+    <button class="btn-primary" onclick="playGame()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Play Now
+    </button>
+    <a href="https://x.com/yourusername" target="_blank" rel="noopener" class="btn-secondary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      Follow on X
+    </a>
+  </div>
+</div>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer>
+  <div class="footer-logo">ALIEN WARS</div>
+  <div class="footer-links">
+    <a href="https://x.com/yourusername" target="_blank">Twitter / X</a>
+    <a href="https://t.me/yourtelegram" target="_blank">Telegram</a>
+    <a href="https://dexscreener.com" target="_blank">Chart</a>
+  </div>
+  <div class="footer-copy">© 2025 Alien Wars on Solana</div>
+</footer>
 
 <script>
-// ═══════════════════════════════════════════════════════════
-// PARALLAX BG
-// ═══════════════════════════════════════════════════════════
-const bgc=document.getElementById('bgc'),bx=bgc.getContext('2d');
-let sc=0;
-function rz(){bgc.width=innerWidth;bgc.height=innerHeight}rz();
-window.addEventListener('resize',rz);
-function drawBg(){
-  const W=bgc.width,H=bgc.height;
-  bx.clearRect(0,0,W,H);
-  const sky=bx.createLinearGradient(0,0,0,H);
-  sky.addColorStop(0,'#010510');sky.addColorStop(.6,'#060e1e');sky.addColorStop(1,'#0a0a0a');
-  bx.fillStyle=sky;bx.fillRect(0,0,W,H);
-  // stars
-  bx.fillStyle='rgba(255,255,255,.55)';
-  for(let i=0;i<80;i++){
-    const sx=((i*173%W)-sc*.02+W*2)%W,sy=(i*97)%(H*.58),ss=.4+(i*7%3)*.5;
-    bx.fillRect(sx,sy,ss,ss);
-  }
-  // mountains
-  bx.fillStyle='rgba(20,30,50,.85)';
-  for(let i=0;i<12;i++){
-    const mx=((i*220+50)-sc*.08+W*3)%(W+200)-100,mh=60+(i*37%80);
-    bx.beginPath();bx.moveTo(mx,H);bx.lineTo(mx+100,H-mh);bx.lineTo(mx+200,H);bx.fill();
-  }
-  // buildings
-  bx.fillStyle='rgba(14,20,30,.95)';
-  for(let i=0;i<16;i++){
-    const bx2=((i*190+20)-sc*.15+W*3)%(W+160)-80,bh=40+(i*53%70),bw=35+(i*29%40);
-    bx.fillRect(bx2,H-bh,bw,bh);
-    bx.fillStyle='rgba(245,166,35,.35)';
-    for(let wy=H-bh+6;wy<H-8;wy+=10)for(let wx=bx2+4;wx<bx2+bw-8;wx+=10)if((i+Math.floor(wy/10))%3!==0)bx.fillRect(wx,wy,5,5);
-    bx.fillStyle='rgba(14,20,30,.95)';
-  }
-  // trees
-  bx.fillStyle='rgba(18,40,18,.9)';
-  for(let i=0;i<20;i++){
-    const tx=((i*130+30)-sc*.3+W*3)%(W+80)-40,th=25+(i*19%20);
-    bx.fillRect(tx+7,H-th,5,th);bx.beginPath();bx.arc(tx+10,H-th,13,0,Math.PI*2);bx.fill();
-  }
-  const g=bx.createLinearGradient(0,H-18,0,H);
-  g.addColorStop(0,'#1a130a');g.addColorStop(1,'#0a0a0a');
-  bx.fillStyle=g;bx.fillRect(0,H-18,W,18);
-  sc+=.38;
-  requestAnimationFrame(drawBg);
-}
-drawBg();
+// ═══════════ CONFIG ═══════════
+const CONTRACT_ADDRESS = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
 
-// ═══════════════════════════════════════════════════════════
-// FUNNEL NAVIGATION
-// ═══════════════════════════════════════════════════════════
-let curStep=1;
-const progressFill=document.getElementById('progress-fill');
-const stepCounter=document.getElementById('step-counter');
+// Inject CA
+document.getElementById('ca-display').textContent = CONTRACT_ADDRESS;
 
-function goStep(n){
-  const prev=document.getElementById('s'+curStep);
-  const next=document.getElementById('s'+n);
-  prev.classList.remove('active');
-  prev.classList.add('exit-left');
-  setTimeout(()=>prev.classList.remove('exit-left'),500);
-  next.classList.add('active');
-  curStep=n;
-  // progress bar: 33% | 66% | 100%
-  progressFill.style.width=(n/3*100)+'%';
-  stepCounter.textContent=(n<10?'0'+n:n)+' / 03';
+// ═══════════ COPY CA ═══════════
+const toast = document.getElementById('toast');
+let toastTimer;
+
+function copyCA() {
+  navigator.clipboard.writeText(CONTRACT_ADDRESS).then(() => {
+    const btn = document.getElementById('ca-copy');
+    btn.classList.add('copied');
+    btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+    }, 2500);
+    clearTimeout(toastTimer);
+    toast.classList.add('show');
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+  });
 }
 
-// ═══════════════════════════════════════════════════════════
-// LAUNCH GAME
-// ═══════════════════════════════════════════════════════════
-const flash=document.getElementById('flash');
-const gf=document.getElementById('gf');
-let launched=false;
-
-function launchGame(){
-  if(launched)return;
-  launched=true;
-  flash.classList.add('on');
-  setTimeout(()=>{
-    flash.classList.remove('on');
-    gf.src='metal-slug-clone.html';
-    document.getElementById('funnel').style.display='none';
-    document.getElementById('crt').style.display='none';
-    document.getElementById('grain').style.display='none';
-    document.getElementById('progress').style.display='none';
-    document.getElementById('step-counter').style.display='none';
-    gf.style.display='block';
-    gf.addEventListener('load',()=>{try{gf.contentWindow.focus()}catch(e){}},{once:true});
-    gf.focus();
-  },120);
+// ═══════════ PLAY GAME ═══════════
+let launched = false;
+function playGame() {
+  if (launched) return;
+  launched = true;
+  const gf = document.getElementById('game-frame');
+  gf.src = 'metal-slug-clone.html';
+  gf.style.display = 'block';
+  document.querySelector('nav').style.display = 'none';
+  gf.addEventListener('load', () => { try { gf.contentWindow.focus(); } catch(e){} }, { once: true });
+  gf.focus();
 }
 
-document.addEventListener('keydown',e=>{
-  if(e.code==='Enter'&&!launched){
-    if(curStep<3) goStep(curStep+1);
-    else launchGame();
+// ═══════════ SCROLL REVEAL ═══════════
+const reveals = document.querySelectorAll('.reveal');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+reveals.forEach(el => observer.observe(el));
+
+// ═══════════ NAVBAR BG ON SCROLL ═══════════
+window.addEventListener('scroll', () => {
+  const nav = document.querySelector('nav');
+  if (window.scrollY > 80) {
+    nav.style.background = 'rgba(6,6,6,0.98)';
+    nav.style.borderBottomColor = 'rgba(255,255,255,0.06)';
+  } else {
+    nav.style.background = 'rgba(6,6,6,0.92)';
+    nav.style.borderBottomColor = 'rgba(255,255,255,0.04)';
   }
-});
-
-// ═══════════════════════════════════════════════════════════
-// CREDITS COUNTER
-// ═══════════════════════════════════════════════════════════
-let creds=3;
-const ce=document.getElementById('credit-c');
-setInterval(()=>{creds=creds<=1?3:creds-1;ce.textContent=`CREDIT(S): 0${creds}`;},3200);
-
-// ═══════════════════════════════════════════════════════════
-// BULLET CASINGS
-// ═══════════════════════════════════════════════════════════
-function spawnCas(){
-  const el=document.createElement('div');el.className='cas';
-  const x=10+Math.random()*(innerWidth-20),r=-35+Math.random()*70,fd=80+Math.random()*130;
-  el.style.cssText=`left:${x}px;top:-18px;--r0:${r}deg;--r1:${r+190}deg;--fd:${fd}px;animation-duration:${1.2+Math.random()*1.8}s;animation-delay:${Math.random()*.5}s`;
-  document.body.appendChild(el);
-  setTimeout(()=>el.remove(),3200);
-}
-setInterval(spawnCas,650);
-
-// ═══════════════════════════════════════════════════════════
-// CURSOR TRAIL
-// ═══════════════════════════════════════════════════════════
-document.addEventListener('mousemove',e=>{
-  if(Math.random()>.14)return;
-  const d=document.createElement('div');d.className='trail';
-  d.style.cssText=`left:${e.clientX}px;top:${e.clientY}px`;
-  document.body.appendChild(d);
-  requestAnimationFrame(()=>{d.style.opacity='0';d.style.transform='scale(2)';});
-  setTimeout(()=>d.remove(),420);
 });
 </script>
 </body>
