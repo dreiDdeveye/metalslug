@@ -18,7 +18,7 @@
   --surface: #111;
   --border: #1e1e1e;
   --text: #ccc;
-  --muted: #666;
+  --muted: #999;
 }
 
 html {
@@ -139,14 +139,14 @@ nav {
 .hero-bg {
   position: absolute;
   inset: 0;
-  background: url('your-background.png') center center / 100% 100% no-repeat;
-  filter: brightness(0.35) saturate(1.2);
+  background: url('stage2-bg.jpg') center center / 100% 100% no-repeat;
+  filter: brightness(0.75) saturate(1.2);
 }
 .hero-bg::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(0deg, var(--bg) 0%, rgba(10,10,10,0.3) 40%, rgba(10,10,10,0.6) 100%);
+  background: linear-gradient(0deg, var(--bg) 0%, rgba(10,10,10,0.15) 40%, rgba(10,10,10,0.3) 100%);
 }
 
 .hero-content {
@@ -159,14 +159,14 @@ nav {
   padding: 60px 20px 40px;
 }
 
-.hero-title {
-  font-family: 'Bebas Neue', cursive;
-  font-size: clamp(80px, 14vw, 180px);
-  line-height: 0.85;
-  letter-spacing: 8px;
-  color: #fff;
-  text-shadow: 0 4px 60px rgba(245,166,35,0.3), 0 0 120px rgba(245,166,35,0.15);
+.hero-logo-img {
+  width: clamp(380px, 52vw, 620px);
+  height: auto;
+  filter: drop-shadow(0 4px 40px rgba(245,166,35,0.3)) drop-shadow(0 0 80px rgba(245,166,35,0.15));
   animation: hero-in 1s ease both;
+  pointer-events: none;
+  margin: -100px 0 -50px;
+  object-fit: contain;
 }
 @keyframes hero-in {
   from { opacity: 0; transform: translateY(30px) scale(0.96); }
@@ -184,7 +184,7 @@ nav {
 
 .hero-desc {
   font-size: 16px;
-  color: rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.8);
   max-width: 600px;
   margin-top: 16px;
   line-height: 1.6;
@@ -235,8 +235,8 @@ nav {
   text-transform: uppercase;
   text-decoration: none;
   color: #fff;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
   padding: 14px 36px;
   border-radius: 6px;
   cursor: pointer;
@@ -306,7 +306,7 @@ nav {
   font-family: 'Share Tech Mono', monospace;
   font-size: 13px;
   letter-spacing: 1.5px;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.7);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -366,7 +366,7 @@ section {
 
 .section-desc {
   font-size: 16px;
-  color: rgba(255,255,255,0.45);
+  color: rgba(255,255,255,0.75);
   max-width: 560px;
   line-height: 1.6;
 }
@@ -448,7 +448,7 @@ section {
 
 .feature-desc {
   font-size: 15px;
-  color: rgba(255,255,255,0.45);
+  color: rgba(255,255,255,0.75);
   line-height: 1.7;
   max-width: 480px;
 }
@@ -491,7 +491,7 @@ section {
 
 .char-card {
   position: relative;
-  background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+  background: linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 32px 20px 24px;
@@ -554,7 +554,7 @@ section {
 }
 
 .token-card {
-  background: rgba(255,255,255,0.02);
+  background: rgba(255,255,255,0.05);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 28px 24px;
@@ -606,7 +606,7 @@ footer {
   font-family: 'Bebas Neue', cursive;
   font-size: 22px;
   letter-spacing: 3px;
-  color: rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.6);
 }
 .footer-links {
   display: flex;
@@ -622,7 +622,7 @@ footer {
 .footer-links a:hover { color: #fff; }
 .footer-copy {
   font-size: 12px;
-  color: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.5);
   letter-spacing: 1px;
 }
 
@@ -710,14 +710,8 @@ footer {
   </div>
 
   <div class="nav-right">
-    <a href="https://x.com/yourusername" target="_blank" rel="noopener" class="nav-social" title="X / Twitter">
+    <a href="https://x.com/XFilesSolana?fbclid=IwY2xjawQHrbxleHRuA2FlbQIxMABicmlkETJ0RmttcDdCVFVybzE2S3pZc3J0YwZhcHBfaWQQMjIyMDM5MTc4ODIwMDg5MgABHju7M8p0Y70An0nauOvs-A-laljGNn9pewbgWkKXz69JHuEA8JSG1_77BbTS_aem_FI-1ohcRyNPfZyZ2Fti_8w" target="_blank" rel="noopener" class="nav-social" title="X / Twitter">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-    </a>
-    <a href="https://t.me/yourtelegram" target="_blank" rel="noopener" class="nav-social" title="Telegram">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5L2 12.5l7 1M21 5l-5 15-4.5-5L21 5zM9 13.5L14 10"/></svg>
-    </a>
-    <a href="https://dexscreener.com" target="_blank" rel="noopener" class="nav-social" title="Chart">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
     </a>
     <button class="nav-cta" onclick="playGame()">Play Now</button>
   </div>
@@ -727,11 +721,9 @@ footer {
 <section class="hero" id="hero">
   <div class="hero-bg"></div>
 
-  <img src="your-character.png" alt="Hero Character" class="hero-char-left" />
-  <img src="your-enemy3.png" alt="Enemy Character" class="hero-char-right" />
 
   <div class="hero-content">
-    <div class="hero-title">ALIEN<br>WARS</div>
+    <img src="639758623_926168626532917_5869607246504545884_n.png" alt="ALIEN WARS" class="hero-logo-img" />
     <div class="hero-subtitle">THE FIRST RUN & GUN ON SOLANA</div>
     <p class="hero-desc">
       Drop into the trenches, blast through enemy lines, and fight your way to victory
